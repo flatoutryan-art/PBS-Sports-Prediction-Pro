@@ -256,3 +256,92 @@ git push origin main
 | Stage 3 | PIN auth pivot, My Picks, Full Leaderboard, Admin Settlement, RLS hardening | ✅ Complete |
 | Stage 4 | Bulk import + validation, PIN reset, Fixture management + API sync, Git/Vercel deployment | ✅ Complete |
 | Stage 5 | PWA icons, performance audit, final pre-launch QA sweep | ⬜ Pending |
+
+---
+
+## ✅ Stage 5 — Production Readiness
+
+### PWA Icons
+- ⬜ SVG icons generated at `public/icons/icon-192.svg` and `public/icons/icon-512.svg`
+- ⬜ Favicon at `public/favicon.svg`
+- ⬜ `manifest.json` updated with `display_override`, app shortcuts (Picks + Leaderboard), correct `start_url: /dashboard`
+- ⬜ Test "Add to Home Screen" on iOS Safari — confirm icon appears correctly
+- ⬜ Test "Add to Home Screen" on Android Chrome — confirm maskable icon fills the circle
+- ⬜ **Note:** iOS does not read `manifest.json` icons — add these `<head>` tags to `index.html` for full iOS support:
+  ```html
+  <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PBS Picks" />
+  ```
+  *(Already added in Stage 2 `index.html` — verify they're present)*
+
+### Performance (MatchDashboard)
+- ✅ `MatchCard` wrapped in `React.memo` with custom comparator — only re-renders when its own data changes
+- ✅ `ScoreInput` wrapped in `React.memo` — prevents sibling re-render cascade on keystroke
+- ✅ `predictionMap` wrapped in `useMemo` — not rebuilt on every filter change
+- ✅ `liveFixtures / upcomingFixtures / completedFixtures` arrays memoized
+- ✅ `useCallback` on score change handlers — stable references between renders
+- ✅ Optimistic updates on prediction save — no spinner flash on fast connections
+- ✅ `refetchIntervalInBackground: false` — no DB polls when user's tab is hidden
+- ✅ `staleTime: 2min` on fixtures, `30s` on predictions
+- ✅ `gcTime: 10min` — keeps cache warm between page navigations
+- ✅ Chunk splitting in `vite.config.ts` — React/Supabase/Query in separate cached bundles
+
+### Offline Handling
+- ✅ `useOnlineStatus` hook listens to `window online/offline` events
+- ✅ `OfflineBanner` shows red strip when offline: "Predictions won't save until you reconnect"
+- ✅ Green "Back online" confirmation shown for 3s on reconnect
+- ✅ `refetchOnReconnect: true` in QueryClient — data re-syncs automatically
+- ⬜ Test by: open app → DevTools → Network tab → "Offline" → submit prediction → confirm banner appears and submission is blocked
+
+### Version Footer
+- ✅ `VITE_GIT_HASH` injected at build time via `vite.config.ts` `define` block
+- ✅ `AppVersion` component displays `v1.0.0 · <hash> · <build-date>`
+- ✅ Visible in Settings page footer (7-tap debug trigger still works)
+- ⬜ After first Vercel deploy: confirm the hash in Settings matches the commit on GitHub
+
+### Admin Reset (Trial Run)
+- ✅ `admin_reset_all_predictions()` SQL function added in `migration_stage5.sql`
+- ✅ Triple-guarded: admin check + passphrase `RESET_TRIAL_RUN` + blocks if any fixture is `completed`
+- ✅ UI lives in Admin → Settle tab → Danger Zone section (three-step confirm flow)
+- ⬜ Run `migration_stage5.sql` in Supabase SQL Editor before go-live
+- ⬜ Test reset on staging data before real tournament starts
+- ⬜ After final trial run: use Reset to wipe test data, then real tournament begins
+
+### How to Play
+- ✅ `HowToPlayModal.tsx` — in-app modal with scoring rules, step-by-step, FAQ
+- ✅ Accessible from Settings page → "❓ How to Play" button
+- ✅ `public/how-to-play.html` — standalone static page, no React required
+  - Hosted automatically by Vercel at `https://yourdomain.com/how-to-play`
+  - Share this URL directly with players via WhatsApp before the tournament
+  - Works offline after first load (static HTML, no JS required)
+
+---
+
+## 🚀 Final Stage Completion Status
+
+| Stage | Description | Status |
+|-------|-------------|--------|
+| Stage 1 | Project scaffold, DB schema, MatchDashboard, Twilio service | ✅ Complete |
+| Stage 2 | App shell, Mobile nav, Top5 leaderboard, Settings + debug panel | ✅ Complete |
+| Stage 3 | PIN auth pivot, My Picks, Full Leaderboard, Admin Settlement, RLS hardening | ✅ Complete |
+| Stage 4 | Bulk import + validation, PIN reset, Fixture management + API sync, Git/Vercel | ✅ Complete |
+| Stage 5 | PWA icons, Performance audit, Offline handling, Version footer, Reset script, How to Play | ✅ Complete |
+
+---
+
+## 🏁 Go-Live Order of Operations
+
+Run these steps in order on launch day:
+
+1. `git push origin main` → Vercel auto-deploys
+2. Run `migration_stage5.sql` in Supabase SQL Editor
+3. Verify `admin_reset_all_predictions` function exists
+4. Test one full trial run with 2–3 players
+5. Run Reset to clear trial data (`RESET_TRIAL_RUN` passphrase)
+6. Deploy `register-user` and `notifications` Edge Functions
+7. Add all player phones to `profiles` via Admin → Players → Bulk Import
+8. Share `https://yourdomain.com/how-to-play` with all 50 players via WhatsApp
+9. Test one WhatsApp alert via Settings → Admin Debug Panel
+10. 🏆 Go live. First match: World Cup 2026.

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0d12" />
+  <title>How to Play · PBS Picks Pro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --maroon: #7B1C35; --maroon-dark: #3f0f1b;
+      --gold: #C9A84C;   --gold-dark: #8d6b20;
+      --slate-950: #0a0d12; --slate-900: #0f1318;
+      --slate-800: #161b23; --slate-700: #1e2532;
+      --slate-600: #252e3f; --slate-500: #334455;
+      --cream: #e8e0d0;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--slate-950);
+      color: var(--cream);
+      font-family: 'DM Sans', system-ui, sans-serif;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Top bar ── */
+    .top-bar { height: 3px; background: linear-gradient(90deg, var(--maroon), var(--gold), var(--maroon)); }
+
+    /* ── Header ── */
+    .header {
+      background: var(--slate-900);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      padding: 20px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 10; backdrop-filter: blur(8px);
+    }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .shield {
+      width: 40px; height: 44px;
+      background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
+      clip-path: polygon(50% 0%, 100% 15%, 100% 65%, 50% 100%, 0% 65%, 0% 15%);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .shield span {
+      font-family: 'Bebas Neue', sans-serif;
+      color: var(--gold); font-size: 14px; letter-spacing: 2px;
+      padding-bottom: 3px;
+    }
+    .logo-text h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px; letter-spacing: 3px; color: var(--cream); line-height: 1;
+    }
+    .logo-text p {
+      font-size: 10px; color: #556677; letter-spacing: 3px; text-transform: uppercase; margin-top: 1px;
+    }
+    .cta-btn {
+      background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
+      border: 1px solid rgba(123,28,53,0.6);
+      color: #ffc8c8; font-family: 'Oswald', sans-serif;
+      font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+      padding: 10px 20px; border-radius: 10px; cursor: pointer;
+      text-decoration: none; display: inline-block; transition: all 0.2s;
+    }
+    .cta-btn:hover { border-color: var(--maroon); color: #fff; }
+
+    /* ── Content ── */
+    .content { max-width: 640px; margin: 0 auto; padding: 32px 20px 80px; }
+
+    /* ── Welcome banner ── */
+    .welcome {
+      background: rgba(201,168,76,0.06);
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: 16px; padding: 20px; margin-bottom: 32px;
+    }
+    .welcome p { font-size: 15px; line-height: 1.7; color: #ccd5de; }
+    .welcome strong { color: var(--gold); }
+
+    /* ── Section headers ── */
+    .section-title {
+      font-family: 'Oswald', sans-serif;
+      font-size: 13px; letter-spacing: 3px; text-transform: uppercase;
+      color: #556677; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
+
+    /* ── Scoring cards ── */
+    .scoring { display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
+    .score-card {
+      display: flex; align-items: flex-start; gap: 14px;
+      background: var(--slate-800); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px; padding: 14px 16px;
+    }
+    .score-card.gold-card { background: rgba(201,168,76,0.06); border-color: rgba(201,168,76,0.2); }
+    .score-card.green-card { background: rgba(20,83,45,0.2); border-color: rgba(34,197,94,0.15); }
+    .pts-badge {
+      width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Bebas Neue', sans-serif; font-size: 22px;
+    }
+    .pts-badge.gold { background: rgba(201,168,76,0.15); color: var(--gold); }
+    .pts-badge.green { background: rgba(20,83,45,0.3); color: #4ade80; }
+    .pts-badge.grey { background: var(--slate-700); color: #556677; }
+    .score-label { font-weight: 500; font-size: 14px; margin-bottom: 3px; }
+    .score-label.gold { color: var(--gold); }
+    .score-label.green { color: #4ade80; }
+    .score-label.grey { color: #556677; }
+    .score-desc { font-size: 12px; color: #556677; line-height: 1.5; }
+
+    /* ── Example box ── */
+    .example {
+      background: var(--slate-800); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px; padding: 14px 16px; margin-top: 12px; margin-bottom: 32px;
+      font-size: 13px; color: #8899aa; line-height: 1.6;
+    }
+    .example strong { color: var(--cream); }
+    .example .pts-inline { font-family: 'Bebas Neue', sans-serif; font-size: 16px; }
+    .example .pts-inline.green { color: #4ade80; }
+    .example .pts-inline.gold { color: var(--gold); }
+
+    /* ── Steps ── */
+    .steps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
+    .step { display: flex; align-items: flex-start; gap: 12px; }
+    .step-num {
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(123,28,53,0.25); border: 1px solid rgba(123,28,53,0.4);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Bebas Neue', sans-serif; font-size: 15px; color: #ffaaaa;
+      margin-top: 1px;
+    }
+    .step p { font-size: 14px; color: #8899aa; line-height: 1.6; padding-top: 2px; }
+    .step p strong { color: var(--cream); }
+
+    /* ── FAQ ── */
+    .faq { display: flex; flex-direction: column; gap: 0; margin-bottom: 32px; }
+    .faq-item { border-bottom: 1px solid rgba(255,255,255,0.06); padding: 14px 0; }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-q { font-size: 14px; font-weight: 500; color: var(--cream); margin-bottom: 5px; }
+    .faq-a { font-size: 13px; color: #556677; line-height: 1.6; }
+
+    /* ── Scoring table ── */
+    .table-wrap { overflow-x: auto; margin-bottom: 32px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left; font-family: 'Oswald', sans-serif;
+      font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+      color: #556677; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); color: #8899aa; }
+    tr:last-child td { border-bottom: none; }
+    td:first-child { color: var(--cream); font-weight: 500; }
+    .pts-cell { font-family: 'Bebas Neue', sans-serif; font-size: 20px; }
+    .pts-cell.gold { color: var(--gold); }
+    .pts-cell.green { color: #4ade80; }
+    .pts-cell.grey { color: #334455; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center; padding: 32px 20px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      color: #2e3a48; font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    }
+
+    @media (max-width: 480px) {
+      .header { padding: 14px 16px; }
+      .cta-btn { display: none; }
+      .content { padding: 24px 16px 80px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar"></div>
+
+  <header class="header">
+    <div class="logo">
+      <div class="shield"><span>PBS</span></div>
+      <div class="logo-text">
+        <h1>PICKS PRO</h1>
+        <p>World Cup 2026</p>
+      </div>
+    </div>
+    <a href="/dashboard" class="cta-btn">Open App →</a>
+  </header>
+
+  <main class="content">
+
+    <div class="welcome">
+      <p>
+        Welcome to <strong>PBS Picks Pro</strong> — the closed-league World Cup 2026 prediction
+        game for the PBS crew. Predict the score of every match, rack up points, and
+        climb the leaderboard. The person with the most points when the final whistle
+        blows wins the glory (and bragging rights until 2030).
+      </p>
+    </div>
+
+    <!-- SCORING -->
+    <div class="section-title">Scoring System</div>
+    <div class="scoring">
+      <div class="score-card gold-card">
+        <div class="pts-badge gold">3</div>
+        <div>
+          <div class="score-label gold">⚡ Exact Score</div>
+          <div class="score-desc">You predict the exact final score — both home and away goals.</div>
+        </div>
+      </div>
+      <div class="score-card green-card">
+        <div class="pts-badge green">1</div>
+        <div>
+          <div class="score-label green">✓ Correct Result</div>
+          <div class="score-desc">You predicted the right outcome (home win, draw, or away win) but not the exact scoreline.</div>
+        </div>
+      </div>
+      <div class="score-card">
+        <div class="pts-badge grey">0</div>
+        <div>
+          <div class="score-label grey">✗ Wrong Pick</div>
+          <div class="score-desc">Your predicted outcome doesn't match the final result.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="example">
+      <strong>Example:</strong> Brazil vs Argentina. You predict <strong>2–1 Brazil</strong>.
+      Final score: <strong>2–0 Brazil</strong>.
+      You get <span class="pts-inline green">+1 pt</span> — correct result
+      (Brazil won), but not the exact score.
+      If you'd predicted 2–0, you'd have scored <span class="pts-inline gold">+3 pts</span>.
+    </div>
+
+    <!-- HOW TO SUBMIT -->
+    <div class="section-title">How to Submit a Prediction</div>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><p>Open the <strong>Fixtures</strong> tab and find an upcoming match.</p></div>
+      <div class="step"><div class="step-num">2</div><p>Tap the match card to expand it.</p></div>
+      <div class="step"><div class="step-num">3</div><p>Enter your predicted home and away scores using the number inputs.</p></div>
+      <div class="step"><div class="step-num">4</div><p>Tap <strong>"Lock In Prediction"</strong> before the match kicks off.</p></div>
+      <div class="step"><div class="step-num">5</div><p>The <strong>gold border</strong> on the card confirms your prediction is saved. You can edit it any time before kickoff.</p></div>
+    </div>
+
+    <!-- QUICK REF TABLE -->
+    <div class="section-title">Quick Reference</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Scenario</th>
+            <th>Your Prediction</th>
+            <th>Final Score</th>
+            <th>Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Exact score ⚡</td>
+            <td>2–1</td>
+            <td>2–1</td>
+            <td class="pts-cell gold">3</td>
+          </tr>
+          <tr>
+            <td>Correct outcome ✓</td>
+            <td>2–1</td>
+            <td>3–0</td>
+            <td class="pts-cell green">1</td>
+          </tr>
+          <tr>
+            <td>Correct outcome ✓</td>
+            <td>1–1</td>
+            <td>0–0</td>
+            <td class="pts-cell green">1</td>
+          </tr>
+          <tr>
+            <td>Wrong outcome ✗</td>
+            <td>2–0</td>
+            <td>1–2</td>
+            <td class="pts-cell grey">0</td>
+          </tr>
+          <tr>
+            <td>No prediction</td>
+            <td>—</td>
+            <td>Any</td>
+            <td class="pts-cell grey">0</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- FAQ -->
+    <div class="section-title">FAQ</div>
+    <div class="faq">
+      <div class="faq-item">
+        <div class="faq-q">When can I submit predictions?</div>
+        <div class="faq-a">Any time before the match kicks off. Once the whistle blows, predictions are locked and you can't make changes. Submit early — don't get caught out.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Can I change my prediction?</div>
+        <div class="faq-a">Yes — as many times as you like, right up until kickoff. Tap the saved card again and update your scores.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">When are points awarded?</div>
+        <div class="faq-a">The admin enters the final score after each match. Points appear on the leaderboard within minutes of full time — usually before you finish your post-match analysis.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What if I forget to predict a match?</div>
+        <div class="faq-a">You score 0 for that match. The Fixtures tab will show it as "No prediction submitted". Use the WhatsApp alerts to avoid missing kickoff.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">How do I get WhatsApp reminders?</div>
+        <div class="faq-a">Go to Settings → enter your mobile number. You'll get a reminder 4 hours before every match and a weekly standings update every Sunday at 18:00.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What if a match is postponed?</div>
+        <div class="faq-a">The admin updates the kickoff time. Your prediction stays saved and the lock time shifts with the new schedule.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Who can see my predictions?</div>
+        <div class="faq-a">Before kickoff, your predictions are private. After the match is locked you can see everyone's picks on the My Picks page — no peeking before kickoff.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">How do I sign in?</div>
+        <div class="faq-a">Enter your registered WhatsApp number. First-time? You'll be prompted to set a 6-digit PIN. After that, it's just your number + PIN — no password needed.</div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>
+    PBS Picks Pro · Play · Bet · Sports · World Cup 2026
+  </footer>
+</body>
+</html>
