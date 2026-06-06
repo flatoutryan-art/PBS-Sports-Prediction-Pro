@@ -28,3 +28,9 @@ export function useProfile() {
 
   return { profile, loading, error }
 }
+
+export function useIsAdmin() {
+  const { profile, loading } = useProfile()
+  const isAdmin = !loading && profile?.role === 'admin'
+  return { isAdmin, loading }
+}
