@@ -2,36 +2,43 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from './useAuth'
 
-export function useProfile() {
+export interface Profile {
+  id: string
+  display_name: string | null
+  username: string
+  phone: string
+  is_registered: boolean
+  total_points: number
+  role: string
+  [key: string]: unknown
+}
+
+export function useProfile(userId?: string) {
   const { user } = useAuth()
-  const [profile, setProfile] = useState<Record<string, unknown> | null>(null)
+  const effectiveId = userId ?? user?.id
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false)
-      return
-    }
-
+    if (!effectiveId) { setLoading(false); return }
     supabase
       .from('profiles')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', effectiveId)
       .single()
       .then(({ data, error }) => {
         if (error) setError(error.message)
-        else setProfile(data)
+        else setProfile(data as Profile)
         setLoading(false)
       })
-  }, [user])
+  }, [effectiveId])
 
   return { profile, loading, error }
 }
 
-// Returns a boolean — matches AdminPage usage: const isAdmin = useIsAdmin(user?.id)
 export function useIsAdmin(userId?: string): boolean {
-  const { profile, loading } = useProfile()
+  const { profile, loading } = useProfile(userId)
   if (!userId) return false
   return !loading && profile?.role === 'admin'
 }
