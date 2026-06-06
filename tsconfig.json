@@ -13,13 +13,12 @@
     "jsx": "react-jsx",
     "types": ["vite/client"],
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    },
+    "paths": { "@/*": ["./src/*"] },
     "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
   "include": ["src"],
+  "exclude": ["src/vite.config.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
