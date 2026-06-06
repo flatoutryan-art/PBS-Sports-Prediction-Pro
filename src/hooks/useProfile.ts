@@ -29,8 +29,9 @@ export function useProfile() {
   return { profile, loading, error }
 }
 
-export function useIsAdmin() {
+// Returns a boolean — matches AdminPage usage: const isAdmin = useIsAdmin(user?.id)
+export function useIsAdmin(userId?: string): boolean {
   const { profile, loading } = useProfile()
-  const isAdmin = !loading && profile?.role === 'admin'
-  return { isAdmin, loading }
+  if (!userId) return false
+  return !loading && profile?.role === 'admin'
 }
