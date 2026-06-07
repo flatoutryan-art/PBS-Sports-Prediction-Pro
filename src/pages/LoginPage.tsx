@@ -346,7 +346,7 @@ function LoginTab({ onProceedToPin }: LoginTabProps) {
     const result = await lookupPhone(phone.trim())
     setIsLoading(false)
 
-    if (result.status === 'not_found') {
+    if (result.status === 'not_invited') {
       setError("Number not found. If you're new, use the Register tab.")
       return
     }
@@ -355,6 +355,7 @@ function LoginTab({ onProceedToPin }: LoginTabProps) {
       setError(`Account locked. Try again after ${t}.`)
       return
     }
+    // At this point result.status is 'set_pin' | 'enter_pin' — both have displayName
     const isRegistered = result.status === 'enter_pin'
     onProceedToPin(phone.trim(), result.displayName, isRegistered)
   }
