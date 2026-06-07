@@ -1,23 +1,25 @@
-import { useState, useEffect } from 'react'
-import { lookupPhone, loginWithPin, registerWithPin, normalisePhone, setNewPinAfterReset } from '@/hooks/useAuth'
+import { useState } from 'react'
+import {
+  joinWithCode,
+  loginWithPin,
+  registerWithPin,
+  setNewPinAfterReset,
+  lookupPhone,
+  normalisePhone,
+} from '@/hooks/useAuth'
 import { clsx } from 'clsx'
 import { format } from 'date-fns'
 
-// ─── PIN Dot Display ─────────────────────────────────────────
+// ─── PIN Dots ─────────────────────────────────────────────────
 
-function PinDots({ length, filled }: { length: number; filled: number }) {
+function PinDots({ filled }: { filled: number }) {
   return (
     <div className="flex gap-4 justify-center my-6">
-      {Array.from({ length }).map((_, i) => (
-        <div
-          key={i}
-          className={clsx(
-            'w-4 h-4 rounded-full border-2 transition-all duration-150',
-            i < filled
-              ? 'bg-gold border-gold scale-110'
-              : 'bg-transparent border-slate-600'
-          )}
-        />
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className={clsx(
+          'w-4 h-4 rounded-full border-2 transition-all duration-150',
+          i < filled ? 'bg-gold border-gold scale-110' : 'bg-transparent border-slate-600'
+        )} />
       ))}
     </div>
   )
@@ -27,31 +29,21 @@ function PinDots({ length, filled }: { length: number; filled: number }) {
 
 const PAD_KEYS = ['1','2','3','4','5','6','7','8','9','','0','⌫']
 
-interface PinPadProps {
-  onKey: (k: string) => void
-  disabled?: boolean
-}
-
-function PinPad({ onKey, disabled }: PinPadProps) {
+function PinPad({ onKey, disabled }: { onKey: (k: string) => void; disabled?: boolean }) {
   return (
     <div className="grid grid-cols-3 gap-3 max-w-[280px] mx-auto">
       {PAD_KEYS.map((key, i) => {
         if (key === '') return <div key={i} />
-        const isBackspace = key === '⌫'
+        const isBack = key === '⌫'
         return (
-          <button
-            key={i}
-            onClick={() => !disabled && onKey(key)}
-            disabled={disabled}
+          <button key={i} onClick={() => !disabled && onKey(key)} disabled={disabled}
             className={clsx(
-              'h-16 rounded-2xl text-xl font-heading tracking-wide transition-all',
-              'active:scale-95 select-none',
-              isBackspace
+              'h-16 rounded-2xl text-xl font-heading tracking-wide transition-all active:scale-95 select-none',
+              isBack
                 ? 'bg-slate-700 border border-white/8 text-slate-400 hover:text-cream hover:bg-slate-600'
                 : 'bg-slate-800 border border-white/8 text-cream hover:bg-slate-700 hover:border-gold/30',
               disabled && 'opacity-40 cursor-not-allowed'
-            )}
-          >
+            )}>
             {key}
           </button>
         )
@@ -60,103 +52,27 @@ function PinPad({ onKey, disabled }: PinPadProps) {
   )
 }
 
-// ─── Phone Entry Step ─────────────────────────────────────────
+// ─── Shared PIN Entry Screen ──────────────────────────────────
 
-interface PhoneStepProps {
-  onNext: (phone: string) => void
-}
+type PinMode = 'set_pin' | 'enter_pin' | 'confirm_pin' | 'force_reset'
 
-function PhoneStep({ onNext }: PhoneStepProps) {
-  const [value, setValue] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!value.trim()) return
-    setIsLoading(true)
-    setError('')
-    // Validate before passing up
-    const digits = value.replace(/\D/g, '')
-    if (digits.length < 9) {
-      setError('Enter a valid SA mobile number.')
-      setIsLoading(false)
-      return
-    }
-    onNext(value.trim())
-    setIsLoading(false)
-  }
-
-  return (
-    <div className="animate-fade-in">
-      <h2 className="font-heading text-xl text-cream tracking-wide mb-1">Welcome</h2>
-      <p className="text-slate-400 text-sm font-body mb-7 leading-relaxed">
-        Enter your registered WhatsApp number to get started.
-      </p>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-xs text-slate-500 tracking-widest uppercase mb-2 font-medium">
-            Mobile Number
-          </label>
-          <div className="flex gap-2">
-            <div className="bg-slate-700 border border-slate-600 rounded-xl px-3 flex items-center text-slate-300 text-sm font-body flex-shrink-0">
-              🇿🇦 +27
-            </div>
-            <input
-              type="tel"
-              inputMode="numeric"
-              value={value}
-              onChange={e => { setValue(e.target.value); setError('') }}
-              placeholder="71 234 5678"
-              autoFocus
-              className="flex-1 bg-slate-950 border border-slate-600 rounded-xl px-4 py-3.5
-                         text-cream text-lg placeholder-slate-600 outline-none tracking-wider
-                         focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all font-body"
-            />
-          </div>
-          {error && <p className="text-red-400 text-sm mt-2 font-body">{error}</p>}
-        </div>
-
-        <button
-          type="submit"
-          disabled={isLoading || !value.trim()}
-          className="w-full bg-shield-gradient border border-maroon/60 text-red-100
-                     font-heading tracking-[2px] uppercase text-sm py-4 rounded-xl
-                     transition-all active:scale-[0.98] disabled:opacity-40"
-        >
-          {isLoading ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="w-4 h-4 border-2 border-red-300/30 border-t-red-300 rounded-full animate-spin" />
-              Checking…
-            </span>
-          ) : 'Continue →'}
-        </button>
-      </form>
-    </div>
-  )
-}
-
-// ─── PIN Step (Set or Enter) ──────────────────────────────────
-
-interface PinStepProps {
-  mode: 'set_pin' | 'enter_pin' | 'force_reset'
-  displayName: string
+interface PinScreenProps {
+  mode: PinMode
   phone: string
+  displayName: string
   onSuccess: () => void
   onBack: () => void
   onForceReset?: () => void
 }
 
-function PinStep({ mode, displayName, phone, onSuccess, onBack, onForceReset }: PinStepProps) {
+function PinScreen({ mode, phone, displayName, onSuccess, onBack, onForceReset }: PinScreenProps) {
   const [pin, setPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
   const [stage, setStage] = useState<'enter' | 'confirm'>('enter')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const isSet = mode === 'set_pin' || mode === 'force_reset'
-  const isForceReset = mode === 'force_reset'
+  const isSetting = mode === 'set_pin' || mode === 'force_reset'
   const currentPin = stage === 'confirm' ? confirmPin : pin
 
   function handleKey(key: string) {
@@ -166,51 +82,41 @@ function PinStep({ mode, displayName, phone, onSuccess, onBack, onForceReset }: 
       else setPin(p => p.slice(0, -1))
       return
     }
-
     const next = currentPin + key
     if (next.length > 6) return
 
     if (stage === 'confirm') {
       setConfirmPin(next)
-      if (next.length === 6) handleConfirmComplete(next)
+      if (next.length === 6) finishConfirm(next)
     } else {
       setPin(next)
       if (next.length === 6) {
-        if (isSet) {
-          // Move to confirm stage
-          setTimeout(() => setStage('confirm'), 100)
-        } else {
-          handleLoginComplete(next)
-        }
+        if (isSetting) setTimeout(() => setStage('confirm'), 120)
+        else finishLogin(next)
       }
     }
   }
 
-  async function handleConfirmComplete(confirmedPin: string) {
-    if (confirmedPin !== pin) {
-      setError('PINs don\'t match. Try again.')
-      setConfirmPin('')
-      setPin('')
-      setStage('enter')
+  async function finishConfirm(confirmed: string) {
+    if (confirmed !== pin) {
+      setError("PINs don't match. Try again.")
+      setPin(''); setConfirmPin(''); setStage('enter')
       return
     }
     setIsLoading(true)
-    // force_reset uses set_new_pin_after_reset; normal registration uses registerWithPin
-    const result = isForceReset
+    const result = mode === 'force_reset'
       ? await setNewPinAfterReset(phone, pin)
       : await registerWithPin(phone, pin)
     setIsLoading(false)
     if (!result.success) {
-      setError(result.error ?? 'Failed to set PIN.')
-      setConfirmPin('')
-      setPin('')
-      setStage('enter')
+      setError(result.error ?? 'Failed. Please try again.')
+      setPin(''); setConfirmPin(''); setStage('enter')
       return
     }
     onSuccess()
   }
 
-  async function handleLoginComplete(enteredPin: string) {
+  async function finishLogin(enteredPin: string) {
     setIsLoading(true)
     const result = await loginWithPin(phone, enteredPin)
     setIsLoading(false)
@@ -219,59 +125,46 @@ function PinStep({ mode, displayName, phone, onSuccess, onBack, onForceReset }: 
       setPin('')
       return
     }
-    // Admin triggered a PIN reset — force them to set a new one
-    if (result.requiresPinReset) {
-      setPin('')
-      setStage('enter')
-      setError('')
-      // Signal parent to switch to force-reset mode
-      onForceReset?.()
-      return
-    }
+    if (result.requiresPinReset) { onForceReset?.(); return }
     onSuccess()
   }
 
-  const displayedPin = stage === 'confirm' ? confirmPin : pin
+  const headings: Record<string, string> = {
+    set_pin:     stage === 'confirm' ? 'Confirm your PIN' : 'Create your PIN',
+    confirm_pin: 'Confirm your PIN',
+    enter_pin:   `Welcome back, ${displayName.split(' ')[0]}!`,
+    force_reset: stage === 'confirm' ? 'Confirm new PIN' : 'Create new PIN',
+  }
 
   return (
     <div className="animate-fade-in">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-slate-500 text-sm mb-6 hover:text-slate-300 transition-colors font-body"
-      >
+      <button onClick={onBack}
+        className="flex items-center gap-1.5 text-slate-500 text-sm mb-5 hover:text-slate-300 transition-colors font-body">
         ← {normalisePhone(phone)}
       </button>
 
-      {isForceReset && (
-        <div className="mb-5 bg-maroon/8 border border-maroon/20 rounded-xl p-3 text-center">
-          <p className="text-red-400 text-sm font-medium font-body">🔑 New PIN Required</p>
-          <p className="text-slate-400 text-xs mt-0.5 font-body">
-            Your PIN was reset by the admin. Please create a new one.
-          </p>
-        </div>
-      )}
-      {isSet && !isForceReset && (
-        <div className="mb-5 bg-gold/8 border border-gold/20 rounded-xl p-3 text-center">
-          <p className="text-gold text-sm font-medium font-body">
-            👋 Welcome, {displayName}!
-          </p>
-          <p className="text-slate-400 text-xs mt-0.5 font-body">
-            {stage === 'enter' ? 'Create a 6-digit PIN to secure your account.' : 'Confirm your PIN.'}
-          </p>
+      {mode === 'force_reset' && (
+        <div className="mb-4 bg-maroon/8 border border-maroon/20 rounded-xl p-3 text-center">
+          <p className="text-red-400 text-sm font-medium font-body">🔑 New PIN required</p>
+          <p className="text-slate-500 text-xs mt-0.5 font-body">Your PIN was reset by the admin.</p>
         </div>
       )}
 
-      <h2 className="font-heading text-xl text-cream tracking-wide text-center">
-        {isSet
-          ? stage === 'enter' ? 'Set Your PIN' : 'Confirm PIN'
-          : `Welcome back, ${displayName.split(' ')[0]}!`}
+      {mode === 'set_pin' && stage === 'enter' && (
+        <div className="mb-4 bg-gold/8 border border-gold/20 rounded-xl p-3 text-center">
+          <p className="text-gold text-sm font-medium font-body">👋 Welcome, {displayName}!</p>
+          <p className="text-slate-400 text-xs mt-0.5 font-body">Choose a 6-digit PIN to secure your account.</p>
+        </div>
+      )}
+
+      <h2 className="font-heading text-xl text-cream tracking-wide text-center mb-1">
+        {headings[mode]}
       </h2>
-
-      {!isSet && (
-        <p className="text-slate-500 text-sm text-center mt-1 font-body">Enter your 6-digit PIN</p>
+      {mode === 'enter_pin' && (
+        <p className="text-slate-500 text-sm text-center font-body">Enter your 6-digit PIN</p>
       )}
 
-      <PinDots length={6} filled={displayedPin.length} />
+      <PinDots filled={stage === 'confirm' ? confirmPin.length : pin.length} />
 
       {error && (
         <p className="text-red-400 text-sm text-center mb-4 font-body animate-fade-in">{error}</p>
@@ -286,85 +179,257 @@ function PinStep({ mode, displayName, phone, onSuccess, onBack, onForceReset }: 
       )}
 
       <p className="text-slate-600 text-xs text-center mt-5 font-body">
-        {isSet
-          ? 'You\'ll use this PIN every time you sign in.'
-          : '5 incorrect attempts will lock your account for 15 minutes.'}
+        {isSetting
+          ? "You'll use this PIN every time you sign in."
+          : '5 wrong attempts will lock your account for 15 minutes.'}
       </p>
     </div>
   )
 }
 
-// ─── Not Invited ──────────────────────────────────────────────
+// ─── REGISTER TAB ─────────────────────────────────────────────
 
-function NotInvited({ phone, onBack }: { phone: string; onBack: () => void }) {
+interface RegisterTabProps {
+  onProceedToPin: (phone: string, displayName: string, isNew: boolean) => void
+}
+
+function RegisterTab({ onProceedToPin }: RegisterTabProps) {
+  const [phone, setPhone] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [joinCode, setJoinCode] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!phone.trim() || !displayName.trim() || !joinCode.trim()) return
+    setIsLoading(true)
+    setError('')
+
+    const result = await joinWithCode(phone.trim(), displayName.trim(), joinCode.trim())
+    setIsLoading(false)
+
+    if (result.status === 'set_pin') {
+      onProceedToPin(phone.trim(), displayName.trim(), result.isNew)
+      return
+    }
+    if (result.status === 'enter_pin') {
+      // Already registered — redirect to login tab behaviour
+      onProceedToPin(phone.trim(), displayName.trim(), false)
+      return
+    }
+
+    const errorMessages: Record<string, string> = {
+      wrong_code:           '❌ Incorrect league code. Check the code and try again.',
+      registration_closed:  '🔒 Registration is currently closed. Contact the admin.',
+      league_full:          '⚽ The league is full (50 players). Contact the admin.',
+      invalid_phone:        '📱 Please enter a valid South African mobile number.',
+      invalid_name:         '👤 Please enter your full name (at least 2 characters).',
+      error:                'result' in result && 'message' in result
+                              ? (result as { message: string }).message
+                              : 'Something went wrong. Please try again.',
+    }
+    setError(errorMessages[result.status] ?? 'Something went wrong.')
+  }
+
   return (
-    <div className="animate-fade-in text-center">
-      <div className="w-14 h-14 rounded-full bg-maroon/10 border border-maroon/20 flex items-center justify-center mx-auto mb-4">
-        <span className="text-2xl">🔒</span>
-      </div>
-      <h2 className="font-heading text-xl text-cream mb-2 tracking-wide">Not on the list</h2>
-      <p className="text-slate-400 text-sm font-body leading-relaxed mb-2">
-        <span className="text-red-400">{normalisePhone(phone)}</span> isn't registered.
+    <div className="animate-fade-in">
+      <p className="text-slate-400 text-sm font-body mb-6 leading-relaxed">
+        Enter your details and the league join code shared by the admin on WhatsApp.
       </p>
-      <p className="text-slate-500 text-sm font-body mb-6">
-        PBS Picks Pro is invite-only. Contact the league admin to get added.
-      </p>
-      <button
-        onClick={onBack}
-        className="w-full bg-slate-700 border border-white/8 text-slate-300
-                   font-heading tracking-widest uppercase text-sm py-3.5 rounded-xl
-                   transition-all active:scale-[0.98]"
-      >
-        Try Another Number
-      </button>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-xs text-slate-500 tracking-widest uppercase mb-1.5 font-medium">
+            Your Name
+          </label>
+          <input
+            type="text"
+            value={displayName}
+            onChange={e => { setDisplayName(e.target.value); setError('') }}
+            placeholder="Ryan van Es"
+            autoComplete="name"
+            className="w-full bg-slate-950 border border-slate-600 rounded-xl px-4 py-3.5
+                       text-cream text-base placeholder-slate-600 outline-none
+                       focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all font-body"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs text-slate-500 tracking-widest uppercase mb-1.5 font-medium">
+            WhatsApp Number
+          </label>
+          <div className="flex gap-2">
+            <div className="bg-slate-700 border border-slate-600 rounded-xl px-3 flex items-center text-slate-300 text-sm font-body flex-shrink-0">
+              🇿🇦 +27
+            </div>
+            <input
+              type="tel"
+              inputMode="numeric"
+              value={phone}
+              onChange={e => { setPhone(e.target.value); setError('') }}
+              placeholder="71 234 5678"
+              autoComplete="tel"
+              className="flex-1 bg-slate-950 border border-slate-600 rounded-xl px-4 py-3.5
+                         text-cream text-base placeholder-slate-600 outline-none tracking-wider
+                         focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all font-body"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs text-slate-500 tracking-widest uppercase mb-1.5 font-medium">
+            League Join Code
+          </label>
+          <input
+            type="text"
+            value={joinCode}
+            onChange={e => { setJoinCode(e.target.value.toUpperCase()); setError('') }}
+            placeholder="PBS2026"
+            autoComplete="off"
+            autoCapitalize="characters"
+            maxLength={12}
+            className="w-full bg-slate-950 border border-slate-600 rounded-xl px-4 py-3.5
+                       text-cream text-base placeholder-slate-600 outline-none
+                       font-mono tracking-[4px] uppercase text-center
+                       focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all"
+          />
+          <p className="text-[11px] text-slate-600 mt-1.5 font-body text-center">
+            Ask the league admin for the code if you don't have it.
+          </p>
+        </div>
+
+        {error && (
+          <div className="bg-red-900/20 border border-red-900/30 rounded-xl px-4 py-3">
+            <p className="text-red-400 text-sm font-body">{error}</p>
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={isLoading || !phone.trim() || !displayName.trim() || !joinCode.trim()}
+          className="w-full bg-shield-gradient border border-maroon/60 text-red-100
+                     font-heading tracking-[2px] uppercase text-sm py-4 rounded-xl
+                     transition-all active:scale-[0.98] disabled:opacity-40"
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-4 h-4 border-2 border-red-300/30 border-t-red-300 rounded-full animate-spin" />
+              Checking…
+            </span>
+          ) : 'Join League →'}
+        </button>
+      </form>
     </div>
   )
 }
 
-// ─── Locked ───────────────────────────────────────────────────
+// ─── LOGIN TAB ────────────────────────────────────────────────
 
-function LockedScreen({ lockedUntil, onBack }: { lockedUntil: string; onBack: () => void }) {
-  const unlockTime = format(new Date(lockedUntil), 'HH:mm')
+interface LoginTabProps {
+  onProceedToPin: (phone: string, displayName: string, isRegistered: boolean) => void
+}
+
+function LoginTab({ onProceedToPin }: LoginTabProps) {
+  const [phone, setPhone] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!phone.trim()) return
+    setIsLoading(true)
+    setError('')
+
+    const result = await lookupPhone(phone.trim())
+    setIsLoading(false)
+
+    if (result.status === 'not_found') {
+      setError("Number not found. If you're new, use the Register tab.")
+      return
+    }
+    if (result.status === 'locked') {
+      const t = format(new Date(result.lockedUntil), 'HH:mm')
+      setError(`Account locked. Try again after ${t}.`)
+      return
+    }
+    const isRegistered = result.status === 'enter_pin'
+    onProceedToPin(phone.trim(), result.displayName, isRegistered)
+  }
+
   return (
-    <div className="animate-fade-in text-center">
-      <div className="text-4xl mb-4">🔐</div>
-      <h2 className="font-heading text-xl text-cream mb-2">Account Locked</h2>
-      <p className="text-slate-400 text-sm font-body mb-1">Too many incorrect PIN attempts.</p>
-      <p className="text-slate-500 text-sm font-body mb-6">
-        Try again after <span className="text-gold">{unlockTime}</span>.
+    <div className="animate-fade-in">
+      <p className="text-slate-400 text-sm font-body mb-6 leading-relaxed">
+        Already registered? Enter your number to sign in.
       </p>
-      <button onClick={onBack} className="text-slate-500 text-sm underline font-body">
-        Use a different number
-      </button>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-xs text-slate-500 tracking-widest uppercase mb-1.5 font-medium">
+            WhatsApp Number
+          </label>
+          <div className="flex gap-2">
+            <div className="bg-slate-700 border border-slate-600 rounded-xl px-3 flex items-center text-slate-300 text-sm font-body flex-shrink-0">
+              🇿🇦 +27
+            </div>
+            <input
+              type="tel"
+              inputMode="numeric"
+              value={phone}
+              onChange={e => { setPhone(e.target.value); setError('') }}
+              placeholder="71 234 5678"
+              autoFocus
+              autoComplete="tel"
+              className="flex-1 bg-slate-950 border border-slate-600 rounded-xl px-4 py-3.5
+                         text-cream text-base placeholder-slate-600 outline-none tracking-wider
+                         focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all font-body"
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-900/20 border border-red-900/30 rounded-xl px-4 py-3">
+            <p className="text-red-400 text-sm font-body">{error}</p>
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={isLoading || !phone.trim()}
+          className="w-full bg-shield-gradient border border-maroon/60 text-red-100
+                     font-heading tracking-[2px] uppercase text-sm py-4 rounded-xl
+                     transition-all active:scale-[0.98] disabled:opacity-40"
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-4 h-4 border-2 border-red-300/30 border-t-red-300 rounded-full animate-spin" />
+              Looking up…
+            </span>
+          ) : 'Continue →'}
+        </button>
+      </form>
     </div>
   )
 }
 
 // ─── Main Login Page ──────────────────────────────────────────
 
-type LoginStep = 'phone' | 'set_pin' | 'enter_pin' | 'force_reset' | 'not_invited' | 'locked'
+type Screen = 'tabs' | 'set_pin' | 'enter_pin' | 'force_reset'
 
 export default function LoginPage() {
-  const [step, setStep] = useState<LoginStep>('phone')
+  const [activeTab, setActiveTab] = useState<'register' | 'login'>('register')
+  const [screen, setScreen] = useState<Screen>('tabs')
   const [phone, setPhone] = useState('')
   const [displayName, setDisplayName] = useState('')
-  const [lockedUntil, setLockedUntil] = useState('')
-  const [isChecking, setIsChecking] = useState(false)
 
-  async function handlePhoneSubmit(rawPhone: string) {
-    setIsChecking(true)
-    setPhone(rawPhone)
-    const result = await lookupPhone(rawPhone)
-    setIsChecking(false)
-
-    if (result.status === 'not_invited') { setStep('not_invited'); return }
-    if (result.status === 'locked')      { setLockedUntil(result.lockedUntil); setStep('locked'); return }
-    setDisplayName(result.displayName)
-    setStep(result.status)
+  function handleProceedToPin(ph: string, name: string, isRegistered: boolean) {
+    setPhone(ph)
+    setDisplayName(name)
+    setScreen(isRegistered ? 'enter_pin' : 'set_pin')
   }
 
   function handleAuthSuccess() {
-    // useAuth listener in App.tsx will detect the new session and redirect
+    // useAuth listener in App.tsx detects new session → redirects to /dashboard
   }
 
   return (
@@ -372,13 +437,12 @@ export default function LoginPage() {
       <div className="h-1 bg-gold-gradient" />
 
       <div className="flex-1 flex flex-col items-center justify-center px-5 py-10">
+
         {/* Logo */}
         <div className="mb-8 text-center">
           <div className="w-16 h-16 mx-auto mb-3 relative">
-            <div
-              className="absolute inset-0 bg-shield-gradient"
-              style={{ clipPath: 'polygon(50% 0%, 100% 15%, 100% 65%, 50% 100%, 0% 65%, 0% 15%)' }}
-            />
+            <div className="absolute inset-0 bg-shield-gradient"
+                 style={{ clipPath: 'polygon(50% 0%, 100% 15%, 100% 65%, 50% 100%, 0% 65%, 0% 15%)' }} />
             <div className="absolute inset-0 flex items-center justify-center pb-1">
               <span className="font-display text-xl text-gold tracking-widest">PBS</span>
             </div>
@@ -390,32 +454,51 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="w-full max-w-sm bg-slate-800 border border-white/8 rounded-2xl p-6">
-          {isChecking && (
-            <div className="flex justify-center py-10">
-              <span className="w-6 h-6 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+        <div className="w-full max-w-sm bg-slate-800 border border-white/8 rounded-2xl overflow-hidden">
+
+          {screen === 'tabs' && (
+            <>
+              {/* Tab headers */}
+              <div className="flex border-b border-white/8">
+                {(['register', 'login'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={clsx(
+                      'flex-1 py-3.5 text-sm font-heading tracking-[2px] uppercase transition-all',
+                      activeTab === tab
+                        ? 'text-gold border-b-2 border-gold bg-gold/5'
+                        : 'text-slate-500 hover:text-slate-300'
+                    )}
+                  >
+                    {tab === 'register' ? '🆕 New Player' : '🔑 Sign In'}
+                  </button>
+                ))}
+              </div>
+
+              <div className="p-6">
+                {activeTab === 'register' ? (
+                  <RegisterTab onProceedToPin={handleProceedToPin} />
+                ) : (
+                  <LoginTab onProceedToPin={handleProceedToPin} />
+                )}
+              </div>
+            </>
+          )}
+
+          {(screen === 'set_pin' || screen === 'enter_pin' || screen === 'force_reset') && (
+            <div className="p-6">
+              <PinScreen
+                mode={screen === 'force_reset' ? 'force_reset' : screen}
+                phone={phone}
+                displayName={displayName}
+                onSuccess={handleAuthSuccess}
+                onBack={() => setScreen('tabs')}
+                onForceReset={() => setScreen('force_reset')}
+              />
             </div>
           )}
 
-          {!isChecking && step === 'phone' && (
-            <PhoneStep onNext={handlePhoneSubmit} />
-          )}
-          {!isChecking && (step === 'set_pin' || step === 'enter_pin' || step === 'force_reset') && (
-            <PinStep
-              mode={step}
-              displayName={displayName}
-              phone={phone}
-              onSuccess={handleAuthSuccess}
-              onBack={() => { setStep('phone'); setPhone('') }}
-              onForceReset={() => setStep('force_reset')}
-            />
-          )}
-          {!isChecking && step === 'not_invited' && (
-            <NotInvited phone={phone} onBack={() => setStep('phone')} />
-          )}
-          {!isChecking && step === 'locked' && (
-            <LockedScreen lockedUntil={lockedUntil} onBack={() => setStep('phone')} />
-          )}
         </div>
       </div>
 
