@@ -13,8 +13,7 @@
  *    - refetchInterval only fires when tab is visible (refetchIntervalInBackground: false)
  * 6. upsertPrediction uses optimistic update to avoid spinner flash
  */
-
-import { useState, useMemo, memo, useCallback } from 'react'
+import { useState, useMemo, memo, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { FixtureWithTeams, Prediction } from '@/lib/types'
@@ -22,14 +21,12 @@ import { format, isToday } from 'date-fns'
 import { clsx } from 'clsx'
 
 // ─── Query keys (centralised to avoid string typos) ──────────
-
 export const QUERY_KEYS = {
   fixtures:    ['fixtures'] as const,
   predictions: (userId: string) => ['predictions', userId] as const,
 }
 
 // ─── Data Fetching ───────────────────────────────────────────
-
 async function fetchFixtures(): Promise<FixtureWithTeams[]> {
   const { data, error } = await supabase
     .from('fixtures')
@@ -65,7 +62,6 @@ async function upsertPrediction(payload: {
 }
 
 // ─── ScoreInput (memoized — only re-renders when value changes) ──
-
 const ScoreInput = memo(function ScoreInput({
   value, onChange, disabled,
 }: {
@@ -89,7 +85,6 @@ const ScoreInput = memo(function ScoreInput({
 })
 
 // ─── MatchCard (memoized — skips re-render if fixture + prediction unchanged) ──
-
 interface MatchCardProps {
   fixture: FixtureWithTeams
   prediction: Prediction | undefined
@@ -102,6 +97,16 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
   const [homeScore, setHomeScore] = useState(prediction?.home_score?.toString() ?? '')
   const [awayScore, setAwayScore] = useState(prediction?.away_score?.toString() ?? '')
   const [saved, setSaved] = useState(!!prediction)
+
+  // Sync score inputs when prediction data arrives from DB (async fetch
+  // completes after component mount, so initial state would be empty)
+  useEffect(() => {
+    if (prediction) {
+      setHomeScore(prediction.home_score.toString())
+      setAwayScore(prediction.away_score.toString())
+      setSaved(true)
+    }
+  }, [prediction?.id, prediction?.home_score, prediction?.away_score])
 
   const isLive      = fixture.status === 'live'
   const isCompleted = fixture.status === 'completed'
@@ -197,17 +202,24 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
           </div>
         </div>
 
-        {/* Score */}
+        {/* Score / Prediction display */}
         <div className="flex flex-col items-center gap-1">
           {isCompleted || isLive ? (
             <div className={clsx('font-display text-3xl tracking-[6px] leading-none', isLive ? 'text-gold' : 'text-slate-400')}>
               {fixture.actual_home_score} : {fixture.actual_away_score}
             </div>
+          ) : prediction ? (
+            <>
+              <div className="font-display text-2xl tracking-[4px] leading-none text-gold/80">
+                {prediction.home_score} : {prediction.away_score}
+              </div>
+              <div className="text-[10px] text-gold/50 tracking-widest uppercase">your pick</div>
+            </>
           ) : (
-            <div className="font-display text-3xl tracking-[6px] leading-none text-slate-700">— : —</div>
-          )}
-          {!isCompleted && !isLive && (
-            <div className="text-[11px] text-slate-500 tracking-widest uppercase">vs</div>
+            <>
+              <div className="font-display text-3xl tracking-[6px] leading-none text-slate-700">— : —</div>
+              <div className="text-[11px] text-slate-500 tracking-widest uppercase">vs</div>
+            </>
           )}
         </div>
 
@@ -244,7 +256,7 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
         </div>
       )}
 
-      {/* Prediction input */}
+      {/* Prediction input (expanded) */}
       {expanded && !isCompleted && (
         <div className="mt-4 pt-4 border-t border-white/6 animate-slide-up" onClick={e => e.stopPropagation()}>
           <p className="text-[11px] text-slate-500 tracking-widest uppercase font-medium mb-2">Your Prediction</p>
@@ -287,7 +299,6 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
 })
 
 // ─── Main Dashboard ──────────────────────────────────────────
-
 const STAGE_FILTERS = ['All', 'Today', 'Group', 'Round of 16', 'Quarter-Final', 'Semi-Final', 'Final']
 
 interface MatchDashboardProps {
@@ -303,7 +314,7 @@ export default function MatchDashboard({ userId }: MatchDashboardProps) {
     queryFn: fetchFixtures,
     staleTime: 2 * 60 * 1000,
     refetchInterval: 30_000,
-    refetchIntervalInBackground: false,  // don't hammer DB while user is on another tab
+    refetchIntervalInBackground: false,
   })
 
   // Predictions: stale after 30s (user may have two tabs open)
@@ -312,7 +323,7 @@ export default function MatchDashboard({ userId }: MatchDashboardProps) {
     queryFn: () => fetchUserPredictions(userId),
     enabled: !!userId,
     staleTime: 30_000,
-    refetchOnWindowFocus: true,  // re-check when user switches back to the tab
+    refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
   })
 
