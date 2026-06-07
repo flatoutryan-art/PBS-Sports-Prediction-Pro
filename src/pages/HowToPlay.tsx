@@ -136,26 +136,26 @@ export default function HowToPlay() {
       {/* Points system */}
       <Section title="How Points Work">
         <p className="text-xs text-slate-400 font-body mb-4 leading-relaxed">
-          Every match is worth up to 3 points. Points are awarded based on how close your prediction is to the actual result.
+          Every match is worth up to 5 points. Points are awarded based on how close your prediction is to the actual result.
         </p>
         <div className="space-y-3 mb-5">
           <PointsBadge
-            points={3}
+            points={5}
             color="gold"
             label="Exact Score"
             detail="You predicted the precise scoreline — both home and away goals correct. Maximum points."
           />
           <PointsBadge
-            points={1}
+            points={2}
             color="red"
-            label="Correct Result"
-            detail="You got the winner right (or correctly called a draw), but the exact score was off. Still earns a point."
+            label="Correct Winner / Draw"
+            detail="You correctly predicted the winner or called a draw, but the exact score was off."
           />
           <PointsBadge
             points={0}
             color="grey"
-            label="Wrong Pick"
-            detail="Your predicted result doesn't match the outcome. No points this time — better luck next match."
+            label="Incorrect"
+            detail="You predicted the wrong winner or failed to predict a draw correctly. No points this time."
           />
         </div>
 
@@ -163,11 +163,11 @@ export default function HowToPlay() {
         <div>
           <p className="text-[11px] text-slate-500 tracking-widest uppercase font-medium mb-2">Examples</p>
           <div className="space-y-2">
-            <ScoreExample actual="2 – 1" predicted="2 – 1" points="+3 pts" color="gold" />
-            <ScoreExample actual="2 – 1" predicted="3 – 0" points="+1 pt"  color="red" />
+            <ScoreExample actual="2 – 1" predicted="2 – 1" points="+5 pts" color="gold" />
+            <ScoreExample actual="2 – 1" predicted="3 – 0" points="+2 pts" color="red" />
             <ScoreExample actual="2 – 1" predicted="1 – 2" points="+0 pts" color="grey" />
-            <ScoreExample actual="1 – 1" predicted="1 – 1" points="+3 pts" color="gold" />
-            <ScoreExample actual="1 – 1" predicted="2 – 2" points="+1 pt"  color="red" />
+            <ScoreExample actual="1 – 1" predicted="1 – 1" points="+5 pts" color="gold" />
+            <ScoreExample actual="1 – 1" predicted="2 – 2" points="+2 pts" color="red" />
           </div>
         </div>
       </Section>
@@ -197,7 +197,7 @@ export default function HowToPlay() {
           </p>
           <p>
             Ties are broken by the number of <span className="text-gold font-medium">exact scores</span> predicted —
-            the player with more 3-point predictions ranks higher.
+            the player with more 5-point exact scores ranks higher.
           </p>
           <p>
             The top 5 players are highlighted in the <span className="text-gold font-medium">Top 5</span> widget
@@ -210,7 +210,7 @@ export default function HowToPlay() {
       <Section title="Tips">
         <ul className="space-y-2 text-xs text-slate-400 font-body leading-relaxed list-none">
           {[
-            'Predict every single match — even a +1 for getting the result right adds up fast over 104 games.',
+            'Predict every single match — even +2 for getting the result right adds up fast over 104 games.',
             'Exact scores in group stage games are harder to hit, but knockout rounds tend to be tighter — 1–0 and 0–0 are more common late in tournaments.',
             "Check the Today filter each morning so you don't miss same-day kick-offs.",
             'Keep an eye on the Leaderboard mid-tournament — a couple of exact scores can jump you several places.',
