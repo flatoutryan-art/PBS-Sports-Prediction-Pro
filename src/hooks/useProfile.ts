@@ -26,7 +26,7 @@ export function useProfile(userId?: string) {
     supabase
       .from('profiles')
       .select('*')
-      .eq('id', effectiveId)
+      .eq('auth_user_id', effectiveId)
       .single()
       .then(({ data, error }) => {
         if (error) setError(error.message)
