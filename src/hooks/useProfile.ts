@@ -10,6 +10,7 @@ export interface Profile {
   is_registered: boolean
   total_points: number
   role: string
+  auth_user_id: string | null
   [key: string]: unknown
 }
 
