@@ -344,7 +344,7 @@ function LoginTab({ onProceedToPin }: LoginTabProps) {
     const result = await lookupPhone(phone.trim())
     setIsLoading(false)
 
-    if (result.status === 'not_found') {
+    if (result.status === 'not_invited') {
       setError("Number not found. If you're new, use the Register tab.")
       return
     }
