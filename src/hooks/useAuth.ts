@@ -115,21 +115,36 @@ export async function registerWithPin(
   const phone = normalisePhone(rawPhone)
   const syntheticEmail = `${phone.replace('+', '')}@pbspicks.internal`
 
-  // Create the Supabase auth user (requires email confirmation DISABLED in Supabase Auth settings)
+  let authUid: string | null = null
+
+  // Try to create the auth user
   const { data: authData, error: signUpError } = await supabase.auth.signUp({
     email: syntheticEmail,
     password: pin,
   })
 
-  if (signUpError || !authData.user) {
-    return { success: false, error: signUpError?.message ?? 'Failed to create account.' }
+  if (signUpError) {
+    // 422 = auth user already exists from a previous partial attempt
+    // Try signing in with the PIN they just entered to recover the session
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: syntheticEmail,
+      password: pin,
+    })
+    if (signInError || !signInData.user) {
+      return { success: false, error: 'Account conflict — please contact the admin to reset your account.' }
+    }
+    authUid = signInData.user.id
+  } else {
+    authUid = authData.user?.id ?? null
   }
+
+  if (!authUid) return { success: false, error: 'Failed to create account.' }
 
   // Store PIN hash in database against this auth user
   const { data, error: rpcError } = await supabase.rpc('register_pin', {
     p_phone: phone,
     p_pin: pin,
-    p_auth_uid: authData.user.id,
+    p_auth_uid: authUid,
   })
 
   if (rpcError || !data?.[0]?.success) {
