@@ -146,7 +146,7 @@ export default function HowToPlay() {
             detail="You predicted the precise scoreline — both home and away goals correct. Maximum points."
           />
           <PointsBadge
-            points={2}
+            points={3}
             color="red"
             label="Correct Winner / Draw"
             detail="You correctly predicted the winner or called a draw, but the exact score was off."
@@ -164,10 +164,10 @@ export default function HowToPlay() {
           <p className="text-[11px] text-slate-500 tracking-widest uppercase font-medium mb-2">Examples</p>
           <div className="space-y-2">
             <ScoreExample actual="2 – 1" predicted="2 – 1" points="+5 pts" color="gold" />
-            <ScoreExample actual="2 – 1" predicted="3 – 0" points="+2 pts" color="red" />
+            <ScoreExample actual="2 – 1" predicted="3 – 0" points="+3 pts" color="red" />
             <ScoreExample actual="2 – 1" predicted="1 – 2" points="+0 pts" color="grey" />
             <ScoreExample actual="1 – 1" predicted="1 – 1" points="+5 pts" color="gold" />
-            <ScoreExample actual="1 – 1" predicted="2 – 2" points="+2 pts" color="red" />
+            <ScoreExample actual="1 – 1" predicted="2 – 2" points="+3 pts" color="red" />
           </div>
         </div>
       </Section>
@@ -197,7 +197,7 @@ export default function HowToPlay() {
           </p>
           <p>
             Ties are broken by the number of <span className="text-gold font-medium">exact scores</span> predicted —
-            the player with more 5-point exact scores ranks higher.
+            the player with more 5-point exact scores ranks higher. In a further tie, most 3-point correct results wins.
           </p>
           <p>
             The top 5 players are highlighted in the <span className="text-gold font-medium">Top 5</span> widget
