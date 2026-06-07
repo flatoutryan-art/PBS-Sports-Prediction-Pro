@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   joinWithCode,
   loginWithPin,
@@ -6,6 +7,7 @@ import {
   setNewPinAfterReset,
   lookupPhone,
   normalisePhone,
+  useAuth,
 } from '@/hooks/useAuth'
 import { clsx } from 'clsx'
 import { format } from 'date-fns'
@@ -344,7 +346,7 @@ function LoginTab({ onProceedToPin }: LoginTabProps) {
     const result = await lookupPhone(phone.trim())
     setIsLoading(false)
 
-    if (result.status === 'not_invited') {
+    if (result.status === 'not_found') {
       setError("Number not found. If you're new, use the Register tab.")
       return
     }
@@ -417,6 +419,14 @@ function LoginTab({ onProceedToPin }: LoginTabProps) {
 type Screen = 'tabs' | 'set_pin' | 'enter_pin' | 'force_reset'
 
 export default function LoginPage() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+
+  // Redirect to dashboard as soon as a session is detected
+  useEffect(() => {
+    if (user) navigate('/dashboard', { replace: true })
+  }, [user, navigate])
+
   const [activeTab, setActiveTab] = useState<'register' | 'login'>('register')
   const [screen, setScreen] = useState<Screen>('tabs')
   const [phone, setPhone] = useState('')
@@ -429,7 +439,7 @@ export default function LoginPage() {
   }
 
   function handleAuthSuccess() {
-    // useAuth listener in App.tsx detects new session → redirects to /dashboard
+    navigate('/dashboard', { replace: true })
   }
 
   return (
