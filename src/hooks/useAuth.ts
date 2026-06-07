@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
-// ─── Session state ───────────────────────────────────────────
+// ─── Session state ────────────────────────────────────────────
 
 export interface AuthState {
   session: Session | null
@@ -39,10 +39,64 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut()
 }
 
-// ─── Phone Lookup ─────────────────────────────────────────────
+// ─── Self-Registration with Join Code ────────────────────────
+
+export type JoinResult =
+  | { status: 'set_pin'; isNew: boolean }       // code correct, proceed to set PIN
+  | { status: 'enter_pin' }                      // already registered, go to login
+  | { status: 'wrong_code' }
+  | { status: 'registration_closed' }
+  | { status: 'league_full' }
+  | { status: 'invalid_phone' }
+  | { status: 'invalid_name' }
+  | { status: 'error'; message: string }
+
+export async function joinWithCode(
+  rawPhone: string,
+  displayName: string,
+  joinCode: string
+): Promise<JoinResult> {
+  const phone = normalisePhone(rawPhone)
+
+  const { data, error } = await supabase.rpc('self_register_player', {
+    p_phone:        phone,
+    p_display_name: displayName.trim(),
+    p_join_code:    joinCode.trim(),
+  })
+
+  if (error) return { status: 'error', message: error.message }
+  if (!data?.length) return { status: 'error', message: 'No response from server.' }
+
+  const result = data[0]
+
+  if (!result.success) {
+    const map: Record<string, JoinResult['status']> = {
+      WRONG_CODE:           'wrong_code',
+      REGISTRATION_CLOSED:  'registration_closed',
+      LEAGUE_FULL:          'league_full',
+      INVALID_PHONE:        'invalid_phone',
+      INVALID_NAME:         'invalid_name',
+    }
+    const mapped = map[result.error_code ?? '']
+    if (mapped) return { status: mapped } as JoinResult
+    return { status: 'error', message: result.error_code ?? 'Unknown error' }
+  }
+
+  // Existing player — already registered, just go to PIN entry
+  if (!result.is_new) {
+    // Check if they've set a PIN yet
+    const lookup = await lookupPhone(phone)
+    if (lookup.status === 'enter_pin') return { status: 'enter_pin' }
+    return { status: 'set_pin', isNew: false }
+  }
+
+  return { status: 'set_pin', isNew: true }
+}
+
+// ─── Phone lookup (returning player shortcut) ─────────────────
 
 export type PhoneLookupResult =
-  | { status: 'not_invited' }
+  | { status: 'not_found' }
   | { status: 'locked'; lockedUntil: string }
   | { status: 'set_pin'; displayName: string }
   | { status: 'enter_pin'; displayName: string }
@@ -51,7 +105,7 @@ export async function lookupPhone(rawPhone: string): Promise<PhoneLookupResult> 
   const phone = normalisePhone(rawPhone)
   const { data, error } = await supabase.rpc('lookup_profile_by_phone', { p_phone: phone })
 
-  if (error || !data?.length) return { status: 'not_invited' }
+  if (error || !data?.length) return { status: 'not_found' }
 
   const p = data[0]
   if (p.locked_until && new Date(p.locked_until) > new Date()) {
@@ -63,7 +117,7 @@ export async function lookupPhone(rawPhone: string): Promise<PhoneLookupResult> 
     : { status: 'set_pin', displayName }
 }
 
-// ─── Registration (Edge Function) ────────────────────────────
+// ─── Registration via Edge Function ──────────────────────────
 
 export async function registerWithPin(
   rawPhone: string,
@@ -71,7 +125,7 @@ export async function registerWithPin(
 ): Promise<{ success: boolean; error?: string }> {
   const phone = normalisePhone(rawPhone)
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+  const anonKey    = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
   const res = await fetch(`${supabaseUrl}/functions/v1/register-user`, {
     method: 'POST',
@@ -82,9 +136,8 @@ export async function registerWithPin(
   const data = await res.json()
   if (!data.success) return { success: false, error: data.error ?? 'Registration failed.' }
 
-  // Set the session returned by the edge function
   await supabase.auth.setSession({
-    access_token: data.access_token,
+    access_token:  data.access_token,
     refresh_token: data.refresh_token,
   })
 
@@ -101,7 +154,7 @@ export async function loginWithPin(
 
   const { data, error } = await supabase.rpc('verify_pin_and_get_session', {
     p_phone: phone,
-    p_pin: pin,
+    p_pin:   pin,
   })
 
   if (error || !data?.length) return { success: false, error: 'Server error. Please try again.' }
@@ -111,19 +164,19 @@ export async function loginWithPin(
     const messages: Record<string, string> = {
       WRONG_PIN:      'Incorrect PIN. Please try again.',
       LOCKED:         'Too many attempts. Try again in 15 minutes.',
-      NOT_REGISTERED: 'PIN not set yet. Please complete registration.',
-      NOT_INVITED:    'This number is not on the invite list.',
+      NOT_REGISTERED: 'PIN not set yet. Please tap "New Player" to register.',
+      NOT_INVITED:    'Number not found. Please register first.',
     }
     return {
-      success: false,
-      error: messages[result.error_code ?? ''] ?? 'Login failed.',
+      success:   false,
+      error:     messages[result.error_code ?? ''] ?? 'Login failed.',
       errorCode: result.error_code ?? undefined,
     }
   }
 
   const syntheticEmail = `${phone.replace('+', '')}@pbspicks.internal`
   const { error: signInError } = await supabase.auth.signInWithPassword({
-    email: syntheticEmail,
+    email:    syntheticEmail,
     password: pin,
   })
 
@@ -131,14 +184,15 @@ export async function loginWithPin(
   return { success: true, requiresPinReset: result.requires_pin_reset === true }
 }
 
-/** After a PIN reset, player sets their permanent new PIN */
+// ─── Forced PIN reset ─────────────────────────────────────────
+
 export async function setNewPinAfterReset(
   rawPhone: string,
   newPin: string
 ): Promise<{ success: boolean; error?: string }> {
   const phone = normalisePhone(rawPhone)
   const { data, error } = await supabase.rpc('set_new_pin_after_reset', {
-    p_phone: phone,
+    p_phone:   phone,
     p_new_pin: newPin,
   })
   if (error || !data?.[0]?.success) {
@@ -147,7 +201,7 @@ export async function setNewPinAfterReset(
   return { success: true }
 }
 
-// ─── Utility ─────────────────────────────────────────────────
+// ─── Phone normalisation ──────────────────────────────────────
 
 export function normalisePhone(raw: string): string {
   const digits = raw.replace(/\D/g, '')
