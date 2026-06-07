@@ -81,20 +81,29 @@ export async function joinWithCode(
   code: string
 ): Promise<JoinWithCodeResult> {
   const phone = normalisePhone(rawPhone)
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
-  try {
-    const res = await fetch(`${supabaseUrl}/functions/v1/join-league`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': anonKey },
-      body: JSON.stringify({ phone, display_name: displayName, code }),
-    })
-    const data = await res.json()
-    return data as JoinWithCodeResult
-  } catch {
-    return { status: 'error', message: 'Network error. Please try again.' }
+  const { data, error } = await supabase.rpc('self_register_player', {
+    p_phone: phone,
+    p_display_name: displayName,
+    p_join_code: code,
+  })
+
+  if (error) return { status: 'error', message: error.message }
+  if (!data?.length) return { status: 'error', message: 'No response from server.' }
+
+  const result = data[0]
+  if (!result.success) {
+    const knownErrors = ['wrong_code', 'registration_closed', 'league_full', 'invalid_phone', 'invalid_name']
+    const errorCode = result.error_code as string
+    if (knownErrors.includes(errorCode)) {
+      return { status: errorCode as 'wrong_code' | 'registration_closed' | 'league_full' | 'invalid_phone' | 'invalid_name' }
+    }
+    return { status: 'error', message: errorCode ?? 'Something went wrong.' }
   }
+
+  return result.is_new
+    ? { status: 'set_pin', isNew: true }
+    : { status: 'enter_pin' }
 }
 
 // ─── Registration (Edge Function) ────────────────────────────
