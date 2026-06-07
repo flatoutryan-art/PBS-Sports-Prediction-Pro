@@ -243,11 +243,11 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
           <div className={clsx(
             'text-xs px-3 py-1 rounded-full font-medium tracking-wide',
             prediction.points_earned === 5 ? 'bg-gold/15 text-gold border border-gold/30'
-            : prediction.points_earned === 2 ? 'bg-maroon/15 text-red-300 border border-maroon/30'
+            : prediction.points_earned === 3 ? 'bg-maroon/15 text-red-300 border border-maroon/30'
             : 'bg-slate-700 text-slate-400 border border-slate-600'
           )}>
             {prediction.points_earned === 5 ? '⚡ Exact Score · +5 pts'
-            : prediction.points_earned === 2 ? '✓ Correct Winner/Draw · +2 pts'
+            : prediction.points_earned === 3 ? '✓ Correct Winner/Draw · +3 pts'
             : '✗ Incorrect · +0 pts'}
           </div>
           <span className="text-xs text-slate-500">
