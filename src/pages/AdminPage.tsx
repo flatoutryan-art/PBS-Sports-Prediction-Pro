@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useIsAdmin } from '@/hooks/useProfile'
 import { normalisePhone } from '@/hooks/useAuth'
+import LeagueSettingsPanel from '@/components/LeagueSettingsPanel'
 import type { FixtureWithTeams } from '@/lib/types'
 import { format, parseISO } from 'date-fns'
 import { clsx } from 'clsx'
@@ -152,6 +153,127 @@ function SettlementRow({ fixture, adminUid }: { fixture: FixtureWithTeams; admin
   )
 }
 
+
+// ─────────────────────────────────────────────────────────────
+// TRIAL RESET PANEL (admin only — settlement tab footer)
+// ─────────────────────────────────────────────────────────────
+
+function ResetTrialPanel({ adminUid }: { adminUid: string }) {
+  const queryClient = useQueryClient()
+  const [step, setStep] = useState<'idle' | 'confirm1' | 'confirm2' | 'done'>('idle')
+  const [passphrase, setPassphrase] = useState('')
+  const [result, setResult] = useState<{ deleted: number; reset: number } | null>(null)
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  async function handleReset() {
+    if (passphrase !== 'RESET_TRIAL_RUN') {
+      setError('Incorrect passphrase.')
+      return
+    }
+    setIsLoading(true)
+    setError('')
+
+    const { data, error: rpcError } = await supabase.rpc('admin_reset_all_predictions', {
+      p_admin_uid: adminUid,
+      p_confirmation: passphrase,
+    })
+
+    setIsLoading(false)
+
+    if (rpcError || !data?.[0]?.success) {
+      const code = data?.[0]?.error_code
+      const msgs: Record<string, string> = {
+        UNAUTHORIZED: 'You are not authorised to do this.',
+        WRONG_PASSPHRASE: 'Incorrect passphrase.',
+        TOURNAMENT_IN_PROGRESS: 'Cannot reset — completed fixtures exist. The real tournament has started.',
+      }
+      setError(msgs[code ?? ''] ?? rpcError?.message ?? 'Reset failed.')
+      return
+    }
+
+    setResult({ deleted: data[0].predictions_deleted, reset: data[0].points_reset })
+    setStep('done')
+    queryClient.invalidateQueries()
+  }
+
+  return (
+    <div className="mt-8 border-t border-red-900/30 pt-6">
+      <div className="bg-red-950/30 border border-red-900/40 rounded-xl p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-red-500 text-sm">⚠</span>
+          <p className="font-heading text-sm text-red-400 tracking-wide uppercase">Danger Zone</p>
+        </div>
+        <p className="text-xs text-slate-500 font-body leading-relaxed mb-3">
+          Reset all predictions and player points to zero. Use this before the real tournament
+          to clear trial-run data. <span className="text-red-400 font-medium">Irreversible.</span>
+          {' '}Blocked automatically once any match has been settled.
+        </p>
+
+        {step === 'idle' && (
+          <button onClick={() => setStep('confirm1')}
+            className="text-xs text-red-500 border border-red-900/50 hover:border-red-700 hover:text-red-400 px-4 py-2 rounded-lg transition-all font-body">
+            Reset Trial Run Data…
+          </button>
+        )}
+
+        {step === 'confirm1' && (
+          <div className="space-y-3">
+            <p className="text-xs text-red-300 font-body">
+              This will permanently delete <strong>all predictions</strong> and reset every player's score to 0.
+              Are you sure?
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setStep('idle')} className="flex-1 btn-ghost py-2 text-xs">Cancel</button>
+              <button onClick={() => setStep('confirm2')}
+                className="flex-1 bg-red-900/40 border border-red-700/60 text-red-300 text-xs font-heading tracking-widest uppercase py-2 rounded-xl hover:bg-red-900/60 transition-all">
+                Yes, I'm Sure →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 'confirm2' && (
+          <div className="space-y-3">
+            <div>
+              <label className="text-[10px] text-slate-500 tracking-widest uppercase font-medium block mb-1.5">
+                Type <span className="text-red-400 font-mono">RESET_TRIAL_RUN</span> to confirm
+              </label>
+              <input
+                type="text"
+                value={passphrase}
+                onChange={e => { setPassphrase(e.target.value); setError('') }}
+                placeholder="RESET_TRIAL_RUN"
+                autoCapitalize="characters"
+                className="w-full bg-slate-950 border border-red-900/50 rounded-xl px-3 py-2.5
+                           font-mono text-sm text-red-300 placeholder-slate-700 outline-none
+                           focus:border-red-700 tracking-widest"
+              />
+              {error && <p className="text-red-400 text-xs mt-1 font-body">{error}</p>}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { setStep('idle'); setPassphrase(''); setError('') }}
+                className="flex-1 btn-ghost py-2 text-xs">Cancel</button>
+              <button
+                onClick={handleReset}
+                disabled={isLoading || passphrase !== 'RESET_TRIAL_RUN'}
+                className="flex-1 bg-red-900 border border-red-700 text-red-100 text-xs font-heading tracking-widest uppercase py-2 rounded-xl hover:bg-red-800 transition-all disabled:opacity-40">
+                {isLoading ? 'Resetting…' : '🗑 Reset Everything'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 'done' && result && (
+          <div className="bg-green-900/20 border border-green-800/30 rounded-lg px-3 py-2.5 text-xs font-body text-green-400">
+            ✓ Reset complete — {result.deleted} predictions deleted, {result.reset} player scores zeroed.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function SettlementTab({ adminUid }: { adminUid: string }) {
   const [filter, setFilter] = useState<'pending' | 'settled' | 'all'>('pending')
 
@@ -212,6 +334,8 @@ function SettlementTab({ adminUid }: { adminUid: string }) {
             {filter === 'pending' ? 'All fixtures settled ✓' : 'Nothing here.'}
           </div>
         )}
+
+      <ResetTrialPanel adminUid={adminUid} />
       </div>
     </div>
   )
@@ -556,6 +680,8 @@ function PlayersTab({ adminUid }: { adminUid: string }) {
         title="Player Management"
         subtitle="Import new players and manage PINs for existing members."
       />
+
+      <LeagueSettingsPanel adminUid={adminUid} />
 
       <BulkImportSection adminUid={adminUid} />
 
