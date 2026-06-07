@@ -106,29 +106,38 @@ export async function joinWithCode(
     : { status: 'enter_pin' }
 }
 
-// ─── Registration (Edge Function) ────────────────────────────
+// ─── Registration — no edge function needed ───────────────────
 
 export async function registerWithPin(
   rawPhone: string,
   pin: string
 ): Promise<{ success: boolean; error?: string }> {
   const phone = normalisePhone(rawPhone)
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+  const syntheticEmail = `${phone.replace('+', '')}@pbspicks.internal`
 
-  const res = await fetch(`${supabaseUrl}/functions/v1/register-user`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': anonKey },
-    body: JSON.stringify({ phone, pin }),
+  // Create the Supabase auth user (requires email confirmation DISABLED in Supabase Auth settings)
+  const { data: authData, error: signUpError } = await supabase.auth.signUp({
+    email: syntheticEmail,
+    password: pin,
   })
 
-  const data = await res.json()
-  if (!data.success) return { success: false, error: data.error ?? 'Registration failed.' }
+  if (signUpError || !authData.user) {
+    return { success: false, error: signUpError?.message ?? 'Failed to create account.' }
+  }
 
-  await supabase.auth.setSession({
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
+  // Store PIN hash in database against this auth user
+  const { data, error: rpcError } = await supabase.rpc('register_pin', {
+    p_phone: phone,
+    p_pin: pin,
+    p_auth_uid: authData.user.id,
   })
+
+  if (rpcError || !data?.[0]?.success) {
+    return {
+      success: false,
+      error: rpcError?.message ?? data?.[0]?.error_code ?? 'Failed to register PIN.',
+    }
+  }
 
   return { success: true }
 }
