@@ -13,6 +13,7 @@ const NAV = [
   { to: '/dashboard',   label: 'Matches',     icon: '⚽' },
   { to: '/picks',       label: 'My Picks',    icon: '🎯' },
   { to: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
+  { to: '/how-to-play', label: 'How to Play', icon: '📖' },
   { to: '/settings',    label: 'Settings',    icon: '⚙️' },
 ]
 
