@@ -16,6 +16,8 @@ import { format } from 'date-fns'
 
 const COUNTRIES = [
   { flag: '🇿🇦', dial: '27',  label: '+27',  name: 'South Africa' },
+  { flag: '🇬🇧', dial: '44',  label: '+44',  name: 'United Kingdom' },
+  { flag: '🇮🇪', dial: '353', label: '+353', name: 'Ireland' },
   { flag: '🇿🇼', dial: '263', label: '+263', name: 'Zimbabwe' },
   { flag: '🇿🇲', dial: '260', label: '+260', name: 'Zambia' },
   { flag: '🇧🇼', dial: '267', label: '+267', name: 'Botswana' },
