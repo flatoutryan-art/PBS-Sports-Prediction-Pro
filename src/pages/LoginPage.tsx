@@ -212,12 +212,13 @@ function RegisterTab({ onProceedToPin }: RegisterTabProps) {
     setIsLoading(false)
 
     if (result.status === 'set_pin') {
-      onProceedToPin(phone.trim(), displayName.trim(), result.isNew)
+      // set_pin always means not yet registered — always show the set PIN screen
+      onProceedToPin(phone.trim(), displayName.trim(), false)
       return
     }
     if (result.status === 'enter_pin') {
-      // Already registered — redirect to login tab behaviour
-      onProceedToPin(phone.trim(), displayName.trim(), false)
+      // Already registered — show the enter PIN screen
+      onProceedToPin(phone.trim(), displayName.trim(), true)
       return
     }
 
