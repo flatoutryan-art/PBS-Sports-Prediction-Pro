@@ -216,8 +216,13 @@ export async function setNewPinAfterReset(
 // ─── Utility ─────────────────────────────────────────────────
 
 export function normalisePhone(raw: string): string {
+  // If already a fully-normalised E.164 number (e.g. "+263771234567"), return as-is.
+  // This prevents double-normalisation when LoginPage pre-normalises before calling auth fns.
+  if (raw.startsWith('+')) return raw
   const digits = raw.replace(/\D/g, '')
-  if (digits.startsWith('27')) return `+${digits}`
-  if (digits.startsWith('0'))  return `+27${digits.slice(1)}`
+  // Has a country code but is missing the leading +
+  if (digits.length > 10) return `+${digits}`
+  // SA local format fallback
+  if (digits.startsWith('0')) return `+27${digits.slice(1)}`
   return `+27${digits}`
 }
