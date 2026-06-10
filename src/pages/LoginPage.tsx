@@ -12,6 +12,75 @@ import {
 import { clsx } from 'clsx'
 import { format } from 'date-fns'
 
+// ─── Supported countries ──────────────────────────────────────
+
+const COUNTRIES = [
+  { flag: '🇿🇦', dial: '27',  label: '+27',  name: 'South Africa' },
+  { flag: '🇿🇼', dial: '263', label: '+263', name: 'Zimbabwe' },
+  { flag: '🇿🇲', dial: '260', label: '+260', name: 'Zambia' },
+  { flag: '🇧🇼', dial: '267', label: '+267', name: 'Botswana' },
+  { flag: '🇳🇦', dial: '264', label: '+264', name: 'Namibia' },
+  { flag: '🇲🇿', dial: '258', label: '+258', name: 'Mozambique' },
+  { flag: '🇲🇼', dial: '265', label: '+265', name: 'Malawi' },
+  { flag: '🇹🇿', dial: '255', label: '+255', name: 'Tanzania' },
+] as const
+
+type Country = typeof COUNTRIES[number]
+
+/** Normalises a locally-entered number using the selected dial code. */
+function normaliseWithCountry(raw: string, dial: string): string {
+  if (raw.startsWith('+')) return normalisePhone(raw) // already E.164
+  const digits = raw.replace(/\D/g, '')
+  if (digits.startsWith(dial)) return `+${digits}`    // user typed full code
+  if (digits.startsWith('0'))  return `+${dial}${digits.slice(1)}`
+  return `+${dial}${digits}`
+}
+
+// ─── Shared phone input ───────────────────────────────────────
+
+interface PhoneInputProps {
+  value: string
+  onChange: (v: string) => void
+  country: Country
+  onCountryChange: (c: Country) => void
+  autoFocus?: boolean
+}
+
+function PhoneInput({ value, onChange, country, onCountryChange, autoFocus }: PhoneInputProps) {
+  return (
+    <div className="flex gap-2">
+      <select
+        value={country.dial}
+        onChange={e => {
+          const c = COUNTRIES.find(c => c.dial === e.target.value) ?? COUNTRIES[0]
+          onCountryChange(c)
+        }}
+        className="bg-slate-950 border border-slate-600 rounded-xl px-3 py-3.5
+                   text-cream text-sm outline-none cursor-pointer
+                   focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all font-body"
+      >
+        {COUNTRIES.map(c => (
+          <option key={c.dial} value={c.dial}>
+            {c.flag} {c.label}
+          </option>
+        ))}
+      </select>
+      <input
+        type="tel"
+        inputMode="numeric"
+        value={value}
+        onChange={e => { onChange(e.target.value) }}
+        placeholder="71 234 5678"
+        autoFocus={autoFocus}
+        autoComplete="tel"
+        className="flex-1 bg-slate-950 border border-slate-600 rounded-xl px-4 py-3.5
+                   text-cream text-base placeholder-slate-600 outline-none tracking-wider
+                   focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all font-body"
+      />
+    </div>
+  )
+}
+
 // ─── PIN Dots ─────────────────────────────────────────────────
 
 function PinDots({ filled }: { filled: number }) {
@@ -197,6 +266,7 @@ interface RegisterTabProps {
 
 function RegisterTab({ onProceedToPin }: RegisterTabProps) {
   const [phone, setPhone] = useState('')
+  const [country, setCountry] = useState<Country>(COUNTRIES[0])
   const [displayName, setDisplayName] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -208,17 +278,18 @@ function RegisterTab({ onProceedToPin }: RegisterTabProps) {
     setIsLoading(true)
     setError('')
 
-    const result = await joinWithCode(phone.trim(), displayName.trim(), joinCode.trim())
+    const normalisedPhone = normaliseWithCountry(phone.trim(), country.dial)
+    const result = await joinWithCode(normalisedPhone, displayName.trim(), joinCode.trim())
     setIsLoading(false)
 
     if (result.status === 'set_pin') {
       // set_pin always means not yet registered — always show the set PIN screen
-      onProceedToPin(phone.trim(), displayName.trim(), false)
+      onProceedToPin(normalisedPhone, displayName.trim(), false)
       return
     }
     if (result.status === 'enter_pin') {
       // Already registered — show the enter PIN screen
-      onProceedToPin(phone.trim(), displayName.trim(), true)
+      onProceedToPin(normalisedPhone, displayName.trim(), true)
       return
     }
 
@@ -226,7 +297,7 @@ function RegisterTab({ onProceedToPin }: RegisterTabProps) {
       wrong_code:           '❌ Incorrect league code. Check the code and try again.',
       registration_closed:  '🔒 Registration is currently closed. Contact the admin.',
       league_full:          '⚽ The league is full (50 players). Contact the admin.',
-      invalid_phone:        '📱 Please enter a valid South African mobile number.',
+      invalid_phone:        '📱 Please enter a valid mobile number.',
       invalid_name:         '👤 Please enter your full name (at least 2 characters).',
       error:                'result' in result && 'message' in result
                               ? (result as { message: string }).message
@@ -259,25 +330,15 @@ function RegisterTab({ onProceedToPin }: RegisterTabProps) {
         </div>
 
         <div>
-          <label className="block text-xs text-slate-500 tracking-widest uppercase mb-1.5 font-medium">
+          <label className="block text-xs text-slate-500 tracking-widests uppercase mb-1.5 font-medium">
             WhatsApp Number
           </label>
-          <div className="flex gap-2">
-            <div className="bg-slate-700 border border-slate-600 rounded-xl px-3 flex items-center text-slate-300 text-sm font-body flex-shrink-0">
-              🇿🇦 +27
-            </div>
-            <input
-              type="tel"
-              inputMode="numeric"
-              value={phone}
-              onChange={e => { setPhone(e.target.value); setError('') }}
-              placeholder="71 234 5678"
-              autoComplete="tel"
-              className="flex-1 bg-slate-950 border border-slate-600 rounded-xl px-4 py-3.5
-                         text-cream text-base placeholder-slate-600 outline-none tracking-wider
-                         focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all font-body"
-            />
-          </div>
+          <PhoneInput
+            value={phone}
+            onChange={v => { setPhone(v); setError('') }}
+            country={country}
+            onCountryChange={setCountry}
+          />
         </div>
 
         <div>
@@ -335,6 +396,7 @@ interface LoginTabProps {
 
 function LoginTab({ onProceedToPin }: LoginTabProps) {
   const [phone, setPhone] = useState('')
+  const [country, setCountry] = useState<Country>(COUNTRIES[0])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -344,7 +406,8 @@ function LoginTab({ onProceedToPin }: LoginTabProps) {
     setIsLoading(true)
     setError('')
 
-    const result = await lookupPhone(phone.trim())
+    const normalisedPhone = normaliseWithCountry(phone.trim(), country.dial)
+    const result = await lookupPhone(normalisedPhone)
     setIsLoading(false)
 
     if (result.status === 'not_invited') {
@@ -358,7 +421,7 @@ function LoginTab({ onProceedToPin }: LoginTabProps) {
     }
     // At this point result.status is 'set_pin' | 'enter_pin' — both have displayName
     const isRegistered = result.status === 'enter_pin'
-    onProceedToPin(phone.trim(), result.displayName, isRegistered)
+    onProceedToPin(normalisedPhone, result.displayName, isRegistered)
   }
 
   return (
@@ -372,23 +435,13 @@ function LoginTab({ onProceedToPin }: LoginTabProps) {
           <label className="block text-xs text-slate-500 tracking-widest uppercase mb-1.5 font-medium">
             WhatsApp Number
           </label>
-          <div className="flex gap-2">
-            <div className="bg-slate-700 border border-slate-600 rounded-xl px-3 flex items-center text-slate-300 text-sm font-body flex-shrink-0">
-              🇿🇦 +27
-            </div>
-            <input
-              type="tel"
-              inputMode="numeric"
-              value={phone}
-              onChange={e => { setPhone(e.target.value); setError('') }}
-              placeholder="71 234 5678"
-              autoFocus
-              autoComplete="tel"
-              className="flex-1 bg-slate-950 border border-slate-600 rounded-xl px-4 py-3.5
-                         text-cream text-base placeholder-slate-600 outline-none tracking-wider
-                         focus:border-gold focus:ring-2 focus:ring-gold/10 transition-all font-body"
-            />
-          </div>
+          <PhoneInput
+            value={phone}
+            onChange={v => { setPhone(v); setError('') }}
+            country={country}
+            onCountryChange={setCountry}
+            autoFocus
+          />
         </div>
 
         {error && (
