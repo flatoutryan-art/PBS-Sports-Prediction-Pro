@@ -111,21 +111,21 @@ function DashboardPage() {
   return (
     <div className="md:grid md:grid-cols-[1fr_280px] md:gap-6">
       <div>
-        {/* Mobile Top 5 strip */}
+        {/* Mobile Top 10 strip */}
         <div className="md:hidden mb-5">
           <div className="flex items-center gap-2 mb-2.5">
-            <span className="text-[10px] text-slate-600 tracking-[3px] uppercase font-medium">Top 5</span>
+            <span className="text-[10px] text-slate-600 tracking-[3px] uppercase font-medium">Top 10</span>
             <div className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
           </div>
           <Top5Leaderboard currentUserId={user?.id} variant="strip" />
         </div>
         <MatchDashboard userId={user?.id ?? ''} />
       </div>
-      {/* Desktop sidebar Top 5 */}
+      {/* Desktop sidebar Top 10 */}
       <div className="hidden md:block">
         <div className="sticky top-6 bg-slate-800 border border-white/8 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs text-slate-500 tracking-[3px] uppercase font-medium">Top 5</span>
+            <span className="text-xs text-slate-500 tracking-[3px] uppercase font-medium">Top 10</span>
             <div className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
           </div>
           <Top5Leaderboard currentUserId={user?.id} variant="card" />
