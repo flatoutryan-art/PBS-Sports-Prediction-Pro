@@ -107,8 +107,10 @@ const PickCard = memo(function PickCard({ row, userId, onSaved }: PickCardProps)
   const queryClient = useQueryClient()
   const isCompleted = row.status === 'completed'
   const isLive      = row.status === 'live'
-  const isLocked    = isCompleted || isLive
   const kickoff     = new Date(row.kickoff_at)
+  // Lock at kickoff time — don't wait for cron to flip status
+  const isKickedOff = new Date() >= kickoff
+  const isLocked    = isCompleted || isLive || isKickedOff
   const hasPick     = row.pred_id !== null
 
   // Pre-fill inputs from saved prediction
