@@ -110,7 +110,9 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
 
   const isLive      = fixture.status === 'live'
   const isCompleted = fixture.status === 'completed'
-  const isLocked    = isLive || isCompleted
+  // Lock predictions at kickoff time — don't wait for the 5-min cron to flip status
+  const isKickedOff = new Date() >= new Date(fixture.kickoff_at)
+  const isLocked    = isLive || isCompleted || isKickedOff
   const kickoff     = new Date(fixture.kickoff_at)
 
   // Stable callbacks — won't recreate on every render
