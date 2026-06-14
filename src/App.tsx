@@ -3,17 +3,18 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate } from 'rea
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
 import { useProfile, useIsAdmin } from '@/hooks/useProfile'
-import LoginPage       from '@/pages/LoginPage'
-import MyPicksPage     from '@/pages/MyPicksPage'
+
+import LoginPage      from '@/pages/LoginPage'
+import MyPicksPage    from '@/pages/MyPicksPage'
 import LeaderboardPage from '@/pages/LeaderboardPage'
-import SettingsPage    from '@/pages/SettingsPage'
-import AdminPage       from '@/pages/AdminPage'
-import HowToPlayPage   from '@/pages/HowToPlay'
-import MatchDashboard  from '@/components/MatchDashboard'
-import Sidebar         from '@/components/Sidebar'
-import MobileNavBar    from '@/components/MobileNavBar'
+import StandingsPage from '@/pages/StandingsPage'
+import SettingsPage   from '@/pages/SettingsPage'
+import AdminPage      from '@/pages/AdminPage'
+import MatchDashboard from '@/components/MatchDashboard'
+import Sidebar        from '@/components/Sidebar'
+import MobileNavBar   from '@/components/MobileNavBar'
 import Top5Leaderboard from '@/components/Top5Leaderboard'
-import OfflineBanner   from '@/components/OfflineBanner'
+import OfflineBanner from '@/components/OfflineBanner'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,6 +32,7 @@ const queryClient = new QueryClient({
 })
 
 // ─── Auth guard ───────────────────────────────────────────────
+
 function AuthGuard() {
   const { isAuthenticated, isLoading } = useAuth()
   const navigate = useNavigate()
@@ -65,6 +67,7 @@ function LoadingSpinner() {
 }
 
 // ─── App shell ────────────────────────────────────────────────
+
 function AppShell() {
   const { user } = useAuth()
   const { profile } = useProfile(user?.id)
@@ -73,6 +76,7 @@ function AppShell() {
   return (
     <div className="min-h-screen bg-slate-950 text-cream font-body">
       <Sidebar profile={profile} currentUserId={user?.id} showAdmin={isAdmin} />
+
       <div className="md:pl-64">
         {/* Mobile header */}
         <header className="md:hidden sticky top-0 z-30 bg-slate-950/95 backdrop-blur
@@ -99,6 +103,7 @@ function AppShell() {
           <Outlet />
         </main>
       </div>
+
       <MobileNavBar showAdmin={isAdmin} />
       <OfflineBanner />
     </div>
@@ -106,26 +111,27 @@ function AppShell() {
 }
 
 // ─── Dashboard with Top5 strip ────────────────────────────────
+
 function DashboardPage() {
   const { user } = useAuth()
   return (
     <div className="md:grid md:grid-cols-[1fr_280px] md:gap-6">
       <div>
-        {/* Mobile Top 10 strip */}
+        {/* Mobile Top 5 strip */}
         <div className="md:hidden mb-5">
           <div className="flex items-center gap-2 mb-2.5">
-            <span className="text-[10px] text-slate-600 tracking-[3px] uppercase font-medium">Top 10</span>
+            <span className="text-[10px] text-slate-600 tracking-[3px] uppercase font-medium">Top 5</span>
             <div className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
           </div>
           <Top5Leaderboard currentUserId={user?.id} variant="strip" />
         </div>
         <MatchDashboard userId={user?.id ?? ''} />
       </div>
-      {/* Desktop sidebar Top 10 */}
+      {/* Desktop sidebar Top 5 */}
       <div className="hidden md:block">
         <div className="sticky top-6 bg-slate-800 border border-white/8 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs text-slate-500 tracking-[3px] uppercase font-medium">Top 10</span>
+            <span className="text-xs text-slate-500 tracking-[3px] uppercase font-medium">Top 5</span>
             <div className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
           </div>
           <Top5Leaderboard currentUserId={user?.id} variant="card" />
@@ -136,21 +142,24 @@ function DashboardPage() {
 }
 
 // ─── Router ──────────────────────────────────────────────────
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+
           <Route element={<AuthGuard />}>
-            <Route path="/"             element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard"    element={<DashboardPage />} />
-            <Route path="/picks"        element={<MyPicksPage />} />
-            <Route path="/leaderboard"  element={<LeaderboardPage />} />
-            <Route path="/how-to-play"  element={<HowToPlayPage />} />
-            <Route path="/settings"     element={<SettingsPage />} />
-            <Route path="/admin"        element={<AdminPage />} />
+            <Route path="/"            element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard"   element={<DashboardPage />} />
+            <Route path="/picks"       element={<MyPicksPage />} />
+            <Route path="/leaderboard" element={<LeaderboardPage />} />
+            <Route path="/standings"   element={<StandingsPage />} />
+            <Route path="/settings"    element={<SettingsPage />} />
+            <Route path="/admin"       element={<AdminPage />} />
           </Route>
+
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
