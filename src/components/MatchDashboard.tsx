@@ -27,7 +27,6 @@ async function fetchFixtures(): Promise<FixtureWithTeams[]> {
 }
 
 async function fetchMyPredictions(): Promise<Prediction[]> {
-  // Uses the server-side function that resolves auth.uid() → profiles.id
   const { data, error } = await supabase.rpc('get_my_predictions')
   if (error) throw error
   return data ?? []
@@ -38,7 +37,6 @@ async function savePrediction(payload: {
   home_score: number
   away_score: number
 }): Promise<void> {
-  // Uses the server-side function that resolves auth.uid() → profiles.id
   const { data, error } = await supabase.rpc('upsert_prediction', {
     p_match_id:   payload.match_id,
     p_home_score: payload.home_score,
@@ -99,31 +97,7 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
   const isLocked    = isLive || isCompleted
   const kickoff     = new Date(fixture.kickoff_at)
 
-  const handleHomeChange = useCallback((v: string) => {
-    setHomeScore(v)
-    setSaved(false)
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-    autoSaveTimer.current = setTimeout(() => {
-      const h = parseInt(v)
-      const a = parseInt(awayScore)
-      if (!isNaN(h) && !isNaN(a) && v !== '') {
-        mutate({ match_id: fixture.id, home_score: h, away_score: a })
-      }
-    }, 800)
-  }, [awayScore, fixture.id, mutate])
-  const handleAwayChange = useCallback((v: string) => {
-    setAwayScore(v)
-    setSaved(false)
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-    autoSaveTimer.current = setTimeout(() => {
-      const h = parseInt(homeScore)
-      const a = parseInt(v)
-      if (!isNaN(h) && !isNaN(a) && v !== '') {
-        mutate({ match_id: fixture.id, home_score: h, away_score: a })
-      }
-    }, 800)
-  }, [homeScore, fixture.id, mutate])
-
+  // FIX: useMutation declared BEFORE the useCallback hooks that reference `mutate`
   const { mutate, isPending, error: mutationError } = useMutation({
     mutationFn: savePrediction,
     onMutate: async (newPred) => {
@@ -154,6 +128,32 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.predictions(userId) })
     },
   })
+
+  const handleHomeChange = useCallback((v: string) => {
+    setHomeScore(v)
+    setSaved(false)
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(() => {
+      const h = parseInt(v)
+      const a = parseInt(awayScore)
+      if (!isNaN(h) && !isNaN(a) && v !== '') {
+        mutate({ match_id: fixture.id, home_score: h, away_score: a })
+      }
+    }, 800)
+  }, [awayScore, fixture.id, mutate])
+
+  const handleAwayChange = useCallback((v: string) => {
+    setAwayScore(v)
+    setSaved(false)
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(() => {
+      const h = parseInt(homeScore)
+      const a = parseInt(v)
+      if (!isNaN(h) && !isNaN(a) && v !== '') {
+        mutate({ match_id: fixture.id, home_score: h, away_score: a })
+      }
+    }, 800)
+  }, [homeScore, fixture.id, mutate])
 
   function handleSubmit() {
     const home = parseInt(homeScore), away = parseInt(awayScore)
