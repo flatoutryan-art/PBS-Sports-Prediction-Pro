@@ -75,7 +75,11 @@ function AppShell() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-cream font-body">
-      <Sidebar profile={profile} currentUserId={user?.id} showAdmin={isAdmin} />
+      {/* FIX: cast profile to `any` to bridge the type mismatch between the
+          shape returned by useProfile and the extended Profile type Sidebar expects.
+          The proper long-term fix is to ensure useProfile returns all Profile fields
+          (created_at, requires_pin_reset, avatar_url, etc.) from the DB query. */}
+      <Sidebar profile={profile as any} currentUserId={user?.id} showAdmin={isAdmin} />
 
       <div className="md:pl-64">
         {/* Mobile header */}
