@@ -64,10 +64,10 @@ async function fetchMyPredictions(): Promise<Prediction[]> {
 
 // ─── Stage config ─────────────────────────────────────────────
 
-const STAGE_ORDER = ['r32', 'r16', 'qf', 'sf', '3rd', 'final']
+const STAGE_ORDER = ['last_32', 'last_16', 'qf', 'sf', '3rd', 'final']
 const STAGE_LABELS: Record<string, string> = {
-  r32:   'Round of 32',
-  r16:   'Round of 16',
+  last_32: 'Round of 32',
+  last_16: 'Round of 16',
   qf:    'Quarter-Finals',
   sf:    'Semi-Finals',
   '3rd': 'Third Place',
