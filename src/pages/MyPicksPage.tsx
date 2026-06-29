@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -81,6 +81,17 @@ function PickRow({ fixture, prediction }: {
   const [saveError, setSaveError] = useState('')
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // FIX: sync local state when prediction loads after mount (async query),
+  // or re-hydrates from cache after tab switch. Without this, useState
+  // initialises once with undefined and never updates when data arrives.
+  useEffect(() => {
+    if (prediction && !dirty) {
+      setHomeScore(prediction.home_score?.toString() ?? '')
+      setAwayScore(prediction.away_score?.toString() ?? '')
+      setSaved(true)
+    }
+  }, [prediction?.id, prediction?.home_score, prediction?.away_score, dirty])
+
   const kickoff = new Date(fixture.kickoff_at)
   const isLocked = isPast(kickoff) || fixture.status !== 'upcoming'
   const isCompleted = fixture.status === 'completed'
@@ -91,7 +102,7 @@ function PickRow({ fixture, prediction }: {
       setSaved(true)
       setDirty(false)
       setSaveError('')
-      // Invalidate both queries so Matches tab and My Picks stay in sync
+      // Invalidate both queries so Fixtures tab and My Picks stay in sync
       queryClient.invalidateQueries({ queryKey: ['my-picks'] })
       queryClient.invalidateQueries({ queryKey: ['predictions'] })
     },
@@ -182,7 +193,6 @@ function PickRow({ fixture, prediction }: {
                     setHomeScore(val)
                     setDirty(true)
                     setSaved(false)
-                    // Auto-save after 800ms when both scores are valid
                     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
                     autoSaveTimer.current = setTimeout(() => {
                       const h = parseInt(val), a = parseInt(awayScore)
@@ -204,7 +214,6 @@ function PickRow({ fixture, prediction }: {
                     setAwayScore(val)
                     setDirty(true)
                     setSaved(false)
-                    // Auto-save after 800ms when both scores are valid
                     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
                     autoSaveTimer.current = setTimeout(() => {
                       const h = parseInt(homeScore), a = parseInt(val)
@@ -279,15 +288,15 @@ export default function MyPicksPage() {
   const { data: fixtures, isLoading: loadingFixtures } = useQuery({
     queryKey: ['fixtures'],
     queryFn: fetchFixtures,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,       // 5 min — shared with MatchDashboard cache
   })
 
   const { data: predictions, isLoading: loadingPredictions } = useQuery({
     queryKey: ['my-picks', user?.id],
     queryFn: fetchMyPredictions,
     enabled: !!user?.id,
-    staleTime: 15_000,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60 * 1000,       // FIX: 5 min keeps cache alive across tab switches
+    refetchOnWindowFocus: false,     // FIX: was wiping predictions on every tab switch
   })
 
   const predMap = new Map(predictions?.map(p => [p.match_id, p]))
