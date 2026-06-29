@@ -1,4 +1,4 @@
-import { useState, useMemo, memo, useCallback, useRef } from 'react'
+import { useState, useMemo, memo, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { FixtureWithTeams, Prediction } from '@/lib/types'
@@ -86,6 +86,17 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
   const [awayScore, setAwayScore] = useState(prediction?.away_score?.toString() ?? '')
   const [saved, setSaved]         = useState(!!prediction)
   const autoSaveTimer             = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // KEY FIX: sync local state when prediction data arrives after initial mount.
+  // useState only runs once — if predictions load after fixtures, the card renders
+  // with empty state. This effect corrects that without overwriting user edits in progress.
+  useEffect(() => {
+    if (prediction) {
+      setHomeScore(prediction.home_score?.toString() ?? '')
+      setAwayScore(prediction.away_score?.toString() ?? '')
+      setSaved(true)
+    }
+  }, [prediction?.id, prediction?.home_score, prediction?.away_score])
 
   const isLive      = fixture.status === 'live'
   const isCompleted = fixture.status === 'completed'
@@ -274,7 +285,9 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
   prev.fixture.status              === next.fixture.status &&
   prev.fixture.actual_home_score   === next.fixture.actual_home_score &&
   prev.fixture.actual_away_score   === next.fixture.actual_away_score &&
-  prev.prediction?.id              === next.prediction?.id &&
+  // FIX: treat undefined→defined transition as a change so the card re-renders
+  // when predictions load after fixtures
+  (prev.prediction?.id ?? null)    === (next.prediction?.id ?? null) &&
   prev.prediction?.home_score      === next.prediction?.home_score &&
   prev.prediction?.away_score      === next.prediction?.away_score &&
   prev.prediction?.points_earned   === next.prediction?.points_earned &&
