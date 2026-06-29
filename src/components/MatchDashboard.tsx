@@ -4,14 +4,11 @@ import { supabase } from '@/lib/supabase'
 import type { FixtureWithTeams, Prediction } from '@/lib/types'
 import { format, isToday } from 'date-fns'
 import { clsx } from 'clsx'
-import TeamForm from '@/components/TeamForm'
 
 export const QUERY_KEYS = {
   fixtures:    ['fixtures'] as const,
   predictions: (userId: string) => ['predictions', userId] as const,
 }
-
-// ─── Data fetching ────────────────────────────────────────────
 
 async function fetchFixtures(): Promise<FixtureWithTeams[]> {
   const { data, error } = await supabase
@@ -26,17 +23,17 @@ async function fetchFixtures(): Promise<FixtureWithTeams[]> {
   return data as FixtureWithTeams[]
 }
 
-async function fetchMyPredictions(): Promise<Prediction[]> {
+async function fetchUserPredictions(_userId: string): Promise<Prediction[]> {
+  // Uses SECURITY DEFINER RPC that resolves auth.uid() → profiles.id correctly
   const { data, error } = await supabase.rpc('get_my_predictions')
   if (error) throw error
   return data ?? []
 }
 
-async function savePrediction(payload: {
-  match_id: string
-  home_score: number
-  away_score: number
+async function upsertPrediction(payload: {
+  user_id: string; match_id: string; home_score: number; away_score: number
 }): Promise<void> {
+  // Uses SECURITY DEFINER RPC that resolves auth.uid() → profiles.id correctly
   const { data, error } = await supabase.rpc('upsert_prediction', {
     p_match_id:   payload.match_id,
     p_home_score: payload.home_score,
@@ -46,19 +43,19 @@ async function savePrediction(payload: {
   const result = data?.[0]
   if (!result?.success) {
     const messages: Record<string, string> = {
-      MATCH_LOCKED:       'This match has already kicked off.',
-      PROFILE_NOT_FOUND:  'Profile not found. Please sign out and back in.',
-      FIXTURE_NOT_FOUND:  'Fixture not found.',
+      MATCH_LOCKED:      'This match has already kicked off.',
+      PROFILE_NOT_FOUND: 'Profile error — please sign out and back in.',
+      FIXTURE_NOT_FOUND: 'Fixture not found.',
     }
     throw new Error(messages[result?.error_code ?? ''] ?? 'Failed to save prediction.')
   }
 }
 
-// ─── Score Input ──────────────────────────────────────────────
-
 const ScoreInput = memo(function ScoreInput({
   value, onChange, disabled,
-}: { value: string; onChange: (v: string) => void; disabled?: boolean }) {
+}: {
+  value: string; onChange: (v: string) => void; disabled?: boolean
+}) {
   return (
     <input
       type="number" min={0} max={20}
@@ -76,8 +73,6 @@ const ScoreInput = memo(function ScoreInput({
   )
 })
 
-// ─── Match Card ───────────────────────────────────────────────
-
 interface MatchCardProps {
   fixture: FixtureWithTeams
   prediction: Prediction | undefined
@@ -90,37 +85,28 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
   const [homeScore, setHomeScore] = useState(prediction?.home_score?.toString() ?? '')
   const [awayScore, setAwayScore] = useState(prediction?.away_score?.toString() ?? '')
   const [saved, setSaved]         = useState(!!prediction)
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoSaveTimer             = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isLive      = fixture.status === 'live'
   const isCompleted = fixture.status === 'completed'
   const isLocked    = isLive || isCompleted
   const kickoff     = new Date(fixture.kickoff_at)
 
-  // FIX: useMutation declared BEFORE the useCallback hooks that reference `mutate`
-  const { mutate, isPending, error: mutationError } = useMutation({
-    mutationFn: savePrediction,
+  const { mutate, isPending } = useMutation({
+    mutationFn: upsertPrediction,
     onMutate: async (newPred) => {
       await queryClient.cancelQueries({ queryKey: QUERY_KEYS.predictions(userId) })
       const previous = queryClient.getQueryData<Prediction[]>(QUERY_KEYS.predictions(userId))
       queryClient.setQueryData<Prediction[]>(QUERY_KEYS.predictions(userId), old => {
         if (!old) return old
         const idx = old.findIndex(p => p.match_id === newPred.match_id)
-        const optimistic = {
-          ...newPred, id: 'optimistic', user_id: userId,
-          points_earned: null,
-          submitted_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
+        const optimistic = { ...newPred, id: 'optimistic', points_earned: null, submitted_at: new Date().toISOString(), updated_at: new Date().toISOString() }
         if (idx === -1) return [...old, optimistic]
         return old.map((p, i) => i === idx ? { ...p, ...newPred } : p)
       })
       return { previous }
     },
-    onSuccess: () => {
-      setSaved(true)
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.predictions(userId) })
-    },
+    onSuccess: () => { setSaved(true) },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(QUERY_KEYS.predictions(userId), ctx.previous)
     },
@@ -129,36 +115,33 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
     },
   })
 
+  // Auto-save after 800ms of no typing — fires when both scores are valid numbers
+  const triggerAutoSave = useCallback((home: string, away: string) => {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(() => {
+      const h = parseInt(home), a = parseInt(away)
+      if (!isNaN(h) && !isNaN(a) && home !== '' && away !== '') {
+        mutate({ user_id: userId, match_id: fixture.id, home_score: h, away_score: a })
+      }
+    }, 800)
+  }, [userId, fixture.id, mutate])
+
   const handleHomeChange = useCallback((v: string) => {
     setHomeScore(v)
     setSaved(false)
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-    autoSaveTimer.current = setTimeout(() => {
-      const h = parseInt(v)
-      const a = parseInt(awayScore)
-      if (!isNaN(h) && !isNaN(a) && v !== '') {
-        mutate({ match_id: fixture.id, home_score: h, away_score: a })
-      }
-    }, 800)
-  }, [awayScore, fixture.id, mutate])
+    triggerAutoSave(v, awayScore)
+  }, [awayScore, triggerAutoSave])
 
   const handleAwayChange = useCallback((v: string) => {
     setAwayScore(v)
     setSaved(false)
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-    autoSaveTimer.current = setTimeout(() => {
-      const h = parseInt(homeScore)
-      const a = parseInt(v)
-      if (!isNaN(h) && !isNaN(a) && v !== '') {
-        mutate({ match_id: fixture.id, home_score: h, away_score: a })
-      }
-    }, 800)
-  }, [homeScore, fixture.id, mutate])
+    triggerAutoSave(homeScore, v)
+  }, [homeScore, triggerAutoSave])
 
   function handleSubmit() {
     const home = parseInt(homeScore), away = parseInt(awayScore)
     if (isNaN(home) || isNaN(away)) return
-    mutate({ match_id: fixture.id, home_score: home, away_score: away })
+    mutate({ user_id: userId, match_id: fixture.id, home_score: home, away_score: away })
   }
 
   return (
@@ -168,7 +151,7 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
         'relative bg-slate-800 border rounded-xl px-5 py-4 mb-3 cursor-pointer',
         'transition-all duration-200 overflow-hidden group',
         'hover:-translate-y-px hover:shadow-card-hover',
-        isLive && 'border-maroon/50',
+        isLive      && 'border-maroon/50',
         !isLive && saved  && 'border-gold/25',
         !isLive && !saved && 'border-white/7',
         isCompleted && 'opacity-70 cursor-default'
@@ -179,10 +162,9 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
         isLive ? 'bg-maroon' : saved ? 'bg-gold' : 'bg-transparent group-hover:bg-gold/50'
       )} />
 
-      {/* Meta */}
       <div className="flex justify-between items-center mb-3">
         <span className="text-xs text-slate-500 tracking-widest uppercase font-medium">
-          {fixture.group_name ?? fixture.stage?.toUpperCase()}
+          {fixture.group_name ?? fixture.stage.toUpperCase()}
         </span>
         {isLive ? (
           <span className="bg-maroon text-red-300 text-[10px] px-2 py-[2px] rounded-full tracking-widest uppercase font-medium animate-pulse">
@@ -200,18 +182,16 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
         )}
       </div>
 
-      {/* Teams */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-xl flex-shrink-0">
-            {fixture.home_team?.flag_url
+            {fixture.home_team.flag_url
               ? <img src={fixture.home_team.flag_url} alt={fixture.home_team.name} className="w-6 h-6 rounded-full object-cover" loading="lazy" />
               : '🏴'}
           </div>
           <div>
-            <div className="font-heading text-base font-medium text-cream tracking-wide">{fixture.home_team?.name}</div>
-            <div className="text-[11px] text-slate-500 tracking-widest">{fixture.home_team?.short_name}</div>
-            {fixture.home_team_id && <TeamForm teamId={fixture.home_team_id} teamName={fixture.home_team?.name ?? ''} />}
+            <div className="font-heading text-base font-medium text-cream tracking-wide">{fixture.home_team.name}</div>
+            <div className="text-[11px] text-slate-500 tracking-widest">{fixture.home_team.short_name}</div>
           </div>
         </div>
 
@@ -230,19 +210,17 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
 
         <div className="flex items-center gap-3 justify-end">
           <div className="text-right">
-            <div className="font-heading text-base font-medium text-cream tracking-wide">{fixture.away_team?.name}</div>
-            <div className="text-[11px] text-slate-500 tracking-widest">{fixture.away_team?.short_name}</div>
-            {fixture.away_team_id && <div className="flex justify-end"><TeamForm teamId={fixture.away_team_id} teamName={fixture.away_team?.name ?? ''} /></div>}
+            <div className="font-heading text-base font-medium text-cream tracking-wide">{fixture.away_team.name}</div>
+            <div className="text-[11px] text-slate-500 tracking-widests">{fixture.away_team.short_name}</div>
           </div>
           <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-xl flex-shrink-0">
-            {fixture.away_team?.flag_url
+            {fixture.away_team.flag_url
               ? <img src={fixture.away_team.flag_url} alt={fixture.away_team.name} className="w-6 h-6 rounded-full object-cover" loading="lazy" />
               : '🏴'}
           </div>
         </div>
       </div>
 
-      {/* Points badge */}
       {isCompleted && prediction?.points_earned !== null && prediction?.points_earned !== undefined && (
         <div className="mt-3 flex items-center gap-2">
           <div className={clsx(
@@ -261,10 +239,13 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
         </div>
       )}
 
-      {/* Prediction input */}
       {expanded && !isCompleted && (
         <div className="mt-4 pt-4 border-t border-white/6 animate-slide-up" onClick={e => e.stopPropagation()}>
-          <p className="text-[11px] text-slate-500 tracking-widest uppercase font-medium mb-2">Your Prediction</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] text-slate-500 tracking-widest uppercase font-medium">Your Prediction</p>
+            {isPending && <span className="text-[10px] text-slate-500 font-body animate-pulse">Saving…</span>}
+            {saved && !isPending && <span className="text-[10px] text-gold font-body">✓ Saved</span>}
+          </div>
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
             <ScoreInput value={homeScore} onChange={handleHomeChange} disabled={isLocked} />
             <span className="font-display text-xl text-slate-600 tracking-widest">—</span>
@@ -284,11 +265,6 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
               {isPending ? 'Saving…' : saved ? '✓ Prediction Saved' : 'Lock In Prediction'}
             </button>
           )}
-          {mutationError && (
-            <p className="text-red-400 text-xs text-center mt-2 font-body">
-              {(mutationError as Error).message}
-            </p>
-          )}
         </div>
       )}
     </div>
@@ -305,14 +281,12 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
   prev.userId                      === next.userId
 ))
 
-// ─── Main Dashboard ───────────────────────────────────────────
-
 const STAGE_FILTERS = ['All', 'Today', 'Group', 'Round of 16', 'Quarter-Final', 'Semi-Final', 'Final']
 
 export default function MatchDashboard({ userId }: { userId: string }) {
   const [stageFilter, setStageFilter] = useState('All')
 
-  const { data: fixtures, isLoading, error } = useQuery({
+  const { data: fixtures, isLoading: fixturesLoading, error } = useQuery({
     queryKey: QUERY_KEYS.fixtures,
     queryFn: fetchFixtures,
     staleTime: 2 * 60 * 1000,
@@ -322,9 +296,9 @@ export default function MatchDashboard({ userId }: { userId: string }) {
 
   const { data: predictions } = useQuery({
     queryKey: QUERY_KEYS.predictions(userId),
-    queryFn: fetchMyPredictions,
+    queryFn: () => fetchUserPredictions(userId),
     enabled: !!userId,
-    staleTime: 15_000,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
   })
@@ -338,7 +312,7 @@ export default function MatchDashboard({ userId }: { userId: string }) {
     const filtered = fixtures?.filter(f => {
       if (stageFilter === 'All')   return true
       if (stageFilter === 'Today') return isToday(new Date(f.kickoff_at))
-      return f.stage?.toLowerCase().includes(stageFilter.toLowerCase().replace(/[-\s]/g, ''))
+      return f.stage.toLowerCase().includes(stageFilter.toLowerCase().replace(/[-\s]/g, ''))
     }) ?? []
     return {
       liveFixtures:      filtered.filter(f => f.status === 'live'),
@@ -356,7 +330,6 @@ export default function MatchDashboard({ userId }: { userId: string }) {
 
   return (
     <div className="animate-fade-in">
-      {/* Filter pills */}
       <div className="flex gap-2 flex-wrap mb-5 overflow-x-auto scrollbar-hide pb-1">
         {STAGE_FILTERS.map(stage => (
           <button key={stage} onClick={() => setStageFilter(stage)}
@@ -371,7 +344,7 @@ export default function MatchDashboard({ userId }: { userId: string }) {
         ))}
       </div>
 
-      {isLoading && (
+      {fixturesLoading && (
         <div className="space-y-3">
           {[1,2,3].map(i => <div key={i} className="bg-slate-800 border border-white/7 rounded-xl h-[90px] animate-pulse" />)}
         </div>
@@ -398,7 +371,7 @@ export default function MatchDashboard({ userId }: { userId: string }) {
         </section>
       )}
 
-      {!isLoading && liveFixtures.length === 0 && upcomingFixtures.length === 0 && completedFixtures.length === 0 && (
+      {!fixturesLoading && liveFixtures.length === 0 && upcomingFixtures.length === 0 && completedFixtures.length === 0 && (
         <div className="text-center py-16 text-slate-500">
           <div className="font-display text-4xl mb-2 text-slate-700">NO MATCHES</div>
           <p className="text-sm font-body">No fixtures found for this filter.</p>
