@@ -79,6 +79,9 @@ interface MatchCardProps {
   userId: string
 }
 
+// NOTE: No custom memo comparator — removed because it was preventing re-renders
+// when predictions loaded after fixtures, causing picks to disappear on tab switch.
+// React's default shallow comparison is correct and sufficient here.
 const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: MatchCardProps) {
   const queryClient = useQueryClient()
   const [expanded, setExpanded]   = useState(false)
@@ -87,9 +90,8 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
   const [saved, setSaved]         = useState(!!prediction)
   const autoSaveTimer             = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // KEY FIX: sync local state when prediction data arrives after initial mount.
-  // useState only runs once — if predictions load after fixtures, the card renders
-  // with empty state. This effect corrects that without overwriting user edits in progress.
+  // Sync local state when prediction data arrives after initial mount,
+  // or when it updates (e.g. after a re-fetch on tab switch).
   useEffect(() => {
     if (prediction) {
       setHomeScore(prediction.home_score?.toString() ?? '')
@@ -126,7 +128,7 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
     },
   })
 
-  // Auto-save after 800ms of no typing — fires when both scores are valid numbers
+  // Auto-save after 800ms of no typing
   const triggerAutoSave = useCallback((home: string, away: string) => {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     autoSaveTimer.current = setTimeout(() => {
@@ -280,19 +282,7 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
       )}
     </div>
   )
-}, (prev, next) => (
-  prev.fixture.id                  === next.fixture.id &&
-  prev.fixture.status              === next.fixture.status &&
-  prev.fixture.actual_home_score   === next.fixture.actual_home_score &&
-  prev.fixture.actual_away_score   === next.fixture.actual_away_score &&
-  // FIX: treat undefined→defined transition as a change so the card re-renders
-  // when predictions load after fixtures
-  (prev.prediction?.id ?? null)    === (next.prediction?.id ?? null) &&
-  prev.prediction?.home_score      === next.prediction?.home_score &&
-  prev.prediction?.away_score      === next.prediction?.away_score &&
-  prev.prediction?.points_earned   === next.prediction?.points_earned &&
-  prev.userId                      === next.userId
-))
+})
 
 const STAGE_FILTERS = ['All', 'Today', 'Group', 'Round of 16', 'Quarter-Final', 'Semi-Final', 'Final']
 
@@ -302,7 +292,7 @@ export default function MatchDashboard({ userId }: { userId: string }) {
   const { data: fixtures, isLoading: fixturesLoading, error } = useQuery({
     queryKey: QUERY_KEYS.fixtures,
     queryFn: fetchFixtures,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,       // 5 min — fixtures rarely change
     refetchInterval: 30_000,
     refetchIntervalInBackground: false,
   })
@@ -311,8 +301,8 @@ export default function MatchDashboard({ userId }: { userId: string }) {
     queryKey: QUERY_KEYS.predictions(userId),
     queryFn: () => fetchUserPredictions(userId),
     enabled: !!userId,
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60 * 1000,       // 5 min — keeps cache alive across tab switches
+    refetchOnWindowFocus: false,     // prevents wipe-and-refetch on every tab switch
     refetchIntervalInBackground: false,
   })
 
@@ -330,7 +320,9 @@ export default function MatchDashboard({ userId }: { userId: string }) {
     return {
       liveFixtures:      filtered.filter(f => f.status === 'live'),
       upcomingFixtures:  filtered.filter(f => f.status === 'upcoming'),
-      completedFixtures: filtered.filter(f => f.status === 'completed'),
+      // Newest-completed-first — most recent result at the top, so players
+      // don't have to scroll through the whole tournament to see latest scores
+      completedFixtures: filtered.filter(f => f.status === 'completed').reverse(),
     }
   }, [fixtures, stageFilter])
 
