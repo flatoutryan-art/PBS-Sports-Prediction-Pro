@@ -1,18 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from './useAuth'
+import type { Profile } from '@/lib/types'
 
-export interface Profile {
-  id: string
-  display_name: string | null
-  username: string
-  phone: string
-  is_registered: boolean
-  total_points: number
-  role: string
-  auth_user_id: string | null
-  [key: string]: unknown
-}
+// Re-export so existing `import { Profile } from '@/hooks/useProfile'` usages still work
+export type { Profile }
 
 export function useProfile(userId?: string) {
   const { user } = useAuth()
@@ -41,5 +33,5 @@ export function useProfile(userId?: string) {
 export function useIsAdmin(userId?: string): boolean {
   const { profile, loading } = useProfile(userId)
   if (!userId) return false
-  return !loading && profile?.role === 'admin'
+  return !loading && (profile as any)?.role === 'admin'
 }
