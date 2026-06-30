@@ -216,9 +216,11 @@ function KnockoutView({ userId }: { userId: string }) {
     </div>
   )
 
-  // Group fixtures by stage, in tournament order
+  // Group fixtures by stage, in tournament order.
+  // Within each stage, newest match first (most recently kicked off / completed
+  // at top) so players don't have to scroll past finished matches to see latest.
   const byStage = STAGE_ORDER.reduce((acc, stage) => {
-    const matches = fixtures.filter(f => f.stage === stage)
+    const matches = fixtures.filter(f => f.stage === stage).reverse()
     if (matches.length > 0) acc[stage] = matches
     return acc
   }, {} as Record<string, FixtureWithTeams[]>)
