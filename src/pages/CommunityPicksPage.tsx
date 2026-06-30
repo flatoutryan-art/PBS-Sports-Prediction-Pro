@@ -36,7 +36,7 @@ async function fetchFixturesWithPicks(): Promise<FixtureOption[]> {
       home_team:teams!fixtures_home_team_id_fkey(name, flag_url),
       away_team:teams!fixtures_away_team_id_fkey(name, flag_url)
     `)
-    .order('kickoff_at', { ascending: false })
+    .order('kickoff_at', { ascending: true })  // FIX: ascending so soonest/today's matches come first
 
   if (error) throw error
 
@@ -108,7 +108,32 @@ export default function CommunityPicksPage() {
     staleTime: 60_000,
   })
 
-  const activeId = selectedFixtureId ?? fixtures?.[0]?.id ?? null
+  // FIX: default to today's/soonest upcoming match, or most recent completed
+  // one if nothing is upcoming today — not just the first item in a date-sorted list
+  const defaultFixtureId = useMemo(() => {
+    if (!fixtures || fixtures.length === 0) return null
+    const now = new Date()
+
+    // Prefer a live match if one is happening right now
+    const live = fixtures.find(f => f.status === 'live')
+    if (live) return live.id
+
+    // Otherwise the soonest upcoming match
+    const upcoming = fixtures
+      .filter(f => f.status === 'upcoming' && new Date(f.kickoff_at) >= now)
+      .sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime())
+    if (upcoming.length > 0) return upcoming[0].id
+
+    // Fallback: most recently completed match
+    const completed = fixtures
+      .filter(f => f.status === 'completed')
+      .sort((a, b) => new Date(b.kickoff_at).getTime() - new Date(a.kickoff_at).getTime())
+    if (completed.length > 0) return completed[0].id
+
+    return fixtures[0].id
+  }, [fixtures])
+
+  const activeId = selectedFixtureId ?? defaultFixtureId
 
   const { data: picks, isLoading: loadingPicks } = useQuery({
     queryKey: ['community-picks', activeId],
@@ -133,6 +158,20 @@ export default function CommunityPicksPage() {
   const isCompleted  = activeFixture?.status === 'completed'
   const totalPickers = picks?.length ?? 0
 
+  // Sort the chip selector: live first, then soonest upcoming, then most recent completed
+  const sortedFixtures = useMemo(() => {
+    if (!fixtures) return []
+    const now = new Date()
+    const live      = fixtures.filter(f => f.status === 'live')
+    const upcoming  = fixtures
+      .filter(f => f.status === 'upcoming' && new Date(f.kickoff_at) >= now)
+      .sort((a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime())
+    const completed = fixtures
+      .filter(f => f.status === 'completed')
+      .sort((a, b) => new Date(b.kickoff_at).getTime() - new Date(a.kickoff_at).getTime())
+    return [...live, ...upcoming, ...completed]
+  }, [fixtures])
+
   return (
     <div className="animate-fade-in">
       {/* Header */}
@@ -148,7 +187,7 @@ export default function CommunityPicksPage() {
         <div className="h-12 bg-slate-800 rounded-xl animate-pulse mb-4" />
       ) : (
         <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-4">
-          {(fixtures ?? []).map(f => (
+          {sortedFixtures.map(f => (
             <button
               key={f.id}
               onClick={() => { setSelectedFixtureId(f.id); setSearch('') }}
@@ -172,6 +211,9 @@ export default function CommunityPicksPage() {
                 <span className="text-[10px] text-slate-500 ml-1 whitespace-nowrap">
                   {f.actual_home}–{f.actual_away}
                 </span>
+              )}
+              {f.status === 'live' && (
+                <span className="text-[10px] text-maroon ml-1 whitespace-nowrap animate-pulse">●</span>
               )}
             </button>
           ))}
