@@ -8,6 +8,7 @@ import LoginPage      from '@/pages/LoginPage'
 import MyPicksPage    from '@/pages/MyPicksPage'
 import LeaderboardPage from '@/pages/LeaderboardPage'
 import StandingsPage from '@/pages/StandingsPage'
+import CommunityPicksPage from '@/pages/CommunityPicksPage'
 import SettingsPage   from '@/pages/SettingsPage'
 import AdminPage      from '@/pages/AdminPage'
 import MatchDashboard from '@/components/MatchDashboard'
@@ -75,11 +76,7 @@ function AppShell() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-cream font-body">
-      {/* FIX: cast profile to `any` to bridge the type mismatch between the
-          shape returned by useProfile and the extended Profile type Sidebar expects.
-          The proper long-term fix is to ensure useProfile returns all Profile fields
-          (created_at, requires_pin_reset, avatar_url, etc.) from the DB query. */}
-      <Sidebar profile={profile as any} currentUserId={user?.id} showAdmin={isAdmin} />
+      <Sidebar profile={profile} currentUserId={user?.id} showAdmin={isAdmin} />
 
       <div className="md:pl-64">
         {/* Mobile header */}
@@ -160,6 +157,7 @@ export default function App() {
             <Route path="/picks"       element={<MyPicksPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/standings"   element={<StandingsPage />} />
+            <Route path="/community"   element={<CommunityPicksPage />} />
             <Route path="/settings"    element={<SettingsPage />} />
             <Route path="/admin"       element={<AdminPage />} />
           </Route>
