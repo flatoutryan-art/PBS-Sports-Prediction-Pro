@@ -82,13 +82,13 @@ function PointsBadge({ pts }: { pts: number | null }) {
     <span className="text-[10px] text-slate-500 font-body">Pending</span>
   )
   // Exact score: 5pts standard, 10pts doubled (QF/SF/3rd/Final)
-  if (pts >= 5) return (
+  if (pts === 5 || pts === 10) return (
     <span className="text-[10px] px-2 py-0.5 rounded-full bg-gold/15 border border-gold/30 text-gold font-medium">
       ⚡ +{pts}
     </span>
   )
   // Correct result: 3pts standard, 6pts doubled
-  if (pts >= 3) return (
+  if (pts === 3 || pts === 6) return (
     <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-900/20 border border-green-700/30 text-green-400 font-medium">
       ✓ +{pts}
     </span>
@@ -288,13 +288,13 @@ export default function CommunityPicksPage() {
               </div>
               <div className="text-center">
                 <p className="font-display text-lg text-gold">
-                  {picks?.filter(p => p.points_earned !== null && p.points_earned >= 5).length}
+                  {picks?.filter(p => p.points_earned === 5 || p.points_earned === 10).length}
                 </p>
                 <p className="text-[10px] text-slate-500 font-body">Exact ⚡</p>
               </div>
               <div className="text-center">
                 <p className="font-display text-lg text-green-400">
-                  {picks?.filter(p => p.points_earned !== null && p.points_earned >= 3 && p.points_earned < 5).length}
+                  {picks?.filter(p => p.points_earned === 3 || p.points_earned === 6).length}
                 </p>
                 <p className="text-[10px] text-slate-500 font-body">Correct ✓</p>
               </div>
@@ -408,8 +408,8 @@ export default function CommunityPicksPage() {
                     'grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-3 items-center',
                     'border-b border-white/4 last:border-0',
                     pick.player_name === myDisplayName && 'bg-gold/4',
-                    pick.points_earned !== null && pick.points_earned >= 5 && pick.player_name !== myDisplayName && 'bg-gold/4',
-                    pick.points_earned !== null && pick.points_earned >= 3 && pick.points_earned < 5 && pick.player_name !== myDisplayName && 'bg-green-900/6',
+                    (pick.points_earned === 5 || pick.points_earned === 10) && pick.player_name !== myDisplayName && 'bg-gold/4',
+                    (pick.points_earned === 3 || pick.points_earned === 6) && pick.player_name !== myDisplayName && 'bg-green-900/6',
                   )}
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -430,8 +430,8 @@ export default function CommunityPicksPage() {
                   <div className="w-16 text-center">
                     <span className={clsx(
                       'font-display text-base tracking-widest',
-                      pick.points_earned !== null && pick.points_earned >= 5 ? 'text-gold'
-                      : pick.points_earned !== null && pick.points_earned >= 3 && pick.points_earned < 5 ? 'text-green-400'
+                      (pick.points_earned === 5 || pick.points_earned === 10) ? 'text-gold'
+                      : (pick.points_earned === 3 || pick.points_earned === 6) ? 'text-green-400'
                       : pick.points_earned === 0 ? 'text-slate-500'
                       : 'text-slate-300'
                     )}>
