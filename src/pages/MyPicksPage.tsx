@@ -53,16 +53,25 @@ async function savePrediction(payload: {
 }
 
 // ─── Points badge ─────────────────────────────────────────────
+// Handles both standard (5/3) and doubled QF/SF/Final (10/6) points
 
 function PointsBadge({ points }: { points: number | null }) {
   if (points === null) return null
-  const config =
-    points === 5 ? { label: '⚡ Exact · +5', cls: 'bg-gold/15 border-gold/30 text-gold' }
-    : points === 3 ? { label: '✓ Correct · +3', cls: 'bg-green-900/30 border-green-700/40 text-green-400' }
-    : { label: '✗ Wrong · +0', cls: 'bg-slate-700/50 border-slate-600 text-slate-500' }
+  // Exact score: 5pts standard, 10pts doubled
+  if (points === 5 || points === 10) return (
+    <span className="text-[11px] px-2.5 py-1 rounded-full border font-medium font-body tracking-wide bg-gold/15 border-gold/30 text-gold">
+      ⚡ Exact · +{points}
+    </span>
+  )
+  // Correct result: 3pts standard, 6pts doubled
+  if (points === 3 || points === 6) return (
+    <span className="text-[11px] px-2.5 py-1 rounded-full border font-medium font-body tracking-wide bg-green-900/30 border-green-700/40 text-green-400">
+      ✓ Correct · +{points}
+    </span>
+  )
   return (
-    <span className={clsx('text-[11px] px-2.5 py-1 rounded-full border font-medium font-body tracking-wide', config.cls)}>
-      {config.label}
+    <span className="text-[11px] px-2.5 py-1 rounded-full border font-medium font-body tracking-wide bg-slate-700/50 border-slate-600 text-slate-500">
+      ✗ Wrong · +0
     </span>
   )
 }
@@ -81,9 +90,7 @@ function PickRow({ fixture, prediction }: {
   const [saveError, setSaveError] = useState('')
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // FIX: sync local state when prediction loads after mount (async query),
-  // or re-hydrates from cache after tab switch. Without this, useState
-  // initialises once with undefined and never updates when data arrives.
+  // Sync local state when prediction loads after mount or re-hydrates from cache
   useEffect(() => {
     if (prediction && !dirty) {
       setHomeScore(prediction.home_score?.toString() ?? '')
@@ -96,13 +103,15 @@ function PickRow({ fixture, prediction }: {
   const isLocked = isPast(kickoff) || fixture.status !== 'upcoming'
   const isCompleted = fixture.status === 'completed'
 
+  // Gold border for exact (5 or 10 pts), standard border otherwise
+  const isExact = prediction?.points_earned === 5 || prediction?.points_earned === 10
+
   const { mutate, isPending } = useMutation({
     mutationFn: savePrediction,
     onSuccess: () => {
       setSaved(true)
       setDirty(false)
       setSaveError('')
-      // Invalidate both queries so Fixtures tab and My Picks stay in sync
       queryClient.invalidateQueries({ queryKey: ['my-picks'] })
       queryClient.invalidateQueries({ queryKey: ['predictions'] })
     },
@@ -120,7 +129,7 @@ function PickRow({ fixture, prediction }: {
     <div className={clsx(
       'bg-slate-800 border rounded-xl px-4 py-3.5 transition-all',
       isCompleted
-        ? prediction?.points_earned === 5 ? 'border-gold/25' : 'border-white/6 opacity-80'
+        ? isExact ? 'border-gold/25' : 'border-white/6 opacity-80'
         : prediction ? 'border-gold/20' : 'border-white/7'
     )}>
       {/* Match info */}
@@ -252,10 +261,11 @@ function PickRow({ fixture, prediction }: {
 }
 
 // ─── Summary Bar ──────────────────────────────────────────────
+// Counts exact as 5 OR 10, correct as 3 OR 6 (handles 2x QF/SF/Final scoring)
 
 function SummaryBar({ predictions, totalPoints }: { predictions: Prediction[]; totalPoints: number }) {
-  const exact   = predictions.filter(p => p.points_earned === 5).length
-  const correct = predictions.filter(p => p.points_earned === 3).length
+  const exact   = predictions.filter(p => p.points_earned === 5 || p.points_earned === 10).length
+  const correct = predictions.filter(p => p.points_earned === 3 || p.points_earned === 6).length
   const pending = predictions.filter(p => p.points_earned === null).length
 
   return (
@@ -288,15 +298,15 @@ export default function MyPicksPage() {
   const { data: fixtures, isLoading: loadingFixtures } = useQuery({
     queryKey: ['fixtures'],
     queryFn: fetchFixtures,
-    staleTime: 5 * 60 * 1000,       // 5 min — shared with MatchDashboard cache
+    staleTime: 5 * 60 * 1000,
   })
 
   const { data: predictions, isLoading: loadingPredictions } = useQuery({
     queryKey: ['my-picks', user?.id],
     queryFn: fetchMyPredictions,
     enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000,       // FIX: 5 min keeps cache alive across tab switches
-    refetchOnWindowFocus: false,     // FIX: was wiping predictions on every tab switch
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   })
 
   const predMap = new Map(predictions?.map(p => [p.match_id, p]))
@@ -311,7 +321,7 @@ export default function MyPicksPage() {
   const sections = [
     { label: 'Live Now', items: filtered.filter(f => f.status === 'live') },
     { label: 'Upcoming', items: filtered.filter(f => f.status === 'upcoming') },
-    { label: 'Results',  items: filtered.filter(f => f.status === 'completed') },
+    { label: 'Results',  items: filtered.filter(f => f.status === 'completed').reverse() },
   ].filter(s => s.items.length > 0)
 
   const isLoading = loadingFixtures || loadingPredictions
