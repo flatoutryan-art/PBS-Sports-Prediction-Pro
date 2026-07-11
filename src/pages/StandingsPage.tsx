@@ -79,8 +79,8 @@ const STAGE_LABELS: Record<string, string> = {
 function PointsBadge({ points }: { points: number | null | undefined }) {
   if (points === null || points === undefined) return null
   const config =
-    points === 5 ? { label: '⚡ +5', cls: 'bg-gold/15 border-gold/30 text-gold' }
-    : points === 3 ? { label: '✓ +3', cls: 'bg-green-900/30 border-green-700/40 text-green-400' }
+    (points === 5 || points === 10) ? { label: `⚡ +${points}`, cls: 'bg-gold/15 border-gold/30 text-gold' }
+    : (points === 3 || points === 6) ? { label: `✓ +${points}`, cls: 'bg-green-900/30 border-green-700/40 text-green-400' }
     : { label: '✗ +0', cls: 'bg-slate-700/50 border-slate-600 text-slate-500' }
   return (
     <span className={clsx('text-[10px] px-2 py-0.5 rounded-full border font-medium font-body', config.cls)}>
