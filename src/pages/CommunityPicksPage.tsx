@@ -176,6 +176,22 @@ export default function CommunityPicksPage() {
   const isCompleted  = activeFixture?.status === 'completed'
   const totalPickers = picks?.length ?? 0
 
+  // "Popular Picks" — % of players who predicted each scoreline.
+  // Pure client-side aggregation over `picks`, which is already fetched above —
+  // no new query, and only ever computed/shown once kickoffPassed reveals picks.
+  const scorelineBreakdown = useMemo(() => {
+    if (!picks || picks.length === 0) return []
+    const counts = new Map<string, number>()
+    for (const p of picks) {
+      const key = `${p.home_score}-${p.away_score}`
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    return [...counts.entries()]
+      .map(([score, count]) => ({ score, count, pct: Math.round((count / picks.length) * 100) }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5) // top 5 most-picked scorelines
+  }, [picks])
+
   // Sort chips: live first, soonest upcoming, most recent completed
   const sortedFixtures = useMemo(() => {
     if (!fixtures) return []
@@ -319,6 +335,25 @@ export default function CommunityPicksPage() {
               <p className="text-xs text-slate-500 font-body">
                 {totalPickers} player{totalPickers !== 1 ? 's' : ''} have picked · picks revealed at kickoff
               </p>
+            </div>
+          )}
+
+          {/* Popular Picks — only ever shown once kickoffPassed reveals picks,
+              so this automatically respects the existing hidden-until-kickoff rule */}
+          {kickoffPassed && scorelineBreakdown.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-white/6 space-y-1.5">
+              <p className="text-[10px] text-slate-500 tracking-widest uppercase font-medium mb-2">
+                Popular Picks
+              </p>
+              {scorelineBreakdown.map(({ score, count, pct }) => (
+                <div key={score} className="flex items-center gap-2">
+                  <span className="font-display text-sm text-cream w-12">{score}</span>
+                  <div className="flex-1 h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                    <div className="h-full bg-gold/50 rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-[11px] text-slate-500 w-16 text-right">{pct}% ({count})</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
