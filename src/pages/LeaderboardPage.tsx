@@ -95,7 +95,7 @@ export default function LeaderboardPage() {
                 </span>
                 <span className="text-slate-600">·</span>
                 <span className="text-slate-500">
-                  <span className="font-display text-sm">{row.wrong_picks}</span> wrong
+                  <span className="font-display text-sm">{row.predictions_made}</span> picks
                 </span>
               </div>
             </div>
