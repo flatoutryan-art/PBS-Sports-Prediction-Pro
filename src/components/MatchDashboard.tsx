@@ -73,6 +73,38 @@ const ScoreInput = memo(function ScoreInput({
   )
 })
 
+// Self-contained ticking countdown — deliberately isolated from MatchCard's own
+// state so a 30s tick only re-renders this small span, not the whole card/list.
+// This avoids reintroducing the "picks disappearing on tab switch" class of bug.
+const Countdown = memo(function Countdown({ kickoff }: { kickoff: Date }) {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000) // tick every 30s
+    return () => clearInterval(id)
+  }, [])
+
+  const diffMs = kickoff.getTime() - now.getTime()
+  if (diffMs <= 0) return null // kickoff imminent/passed — isLive/isCompleted UI takes over
+
+  const totalMins = Math.floor(diffMs / 60000)
+  const days  = Math.floor(totalMins / 1440)
+  const hours = Math.floor((totalMins % 1440) / 60)
+  const mins  = totalMins % 60
+
+  const label = days > 0
+    ? `${days}d ${hours}h`
+    : hours > 0
+      ? `${hours}h ${mins}m`
+      : `${mins}m`
+
+  return (
+    <span className="text-[11px] text-gold/70 font-body ml-2">
+      · Locks in {label}
+    </span>
+  )
+})
+
 interface MatchCardProps {
   fixture: FixtureWithTeams
   prediction: Prediction | undefined
@@ -191,6 +223,7 @@ const MatchCard = memo(function MatchCard({ fixture, prediction, userId }: Match
               ? `Today · ${format(kickoff, 'HH:mm')}`
               : format(kickoff, 'EEE d MMM · HH:mm')}
             {fixture.venue && ` · ${fixture.venue}`}
+            {!isLocked && <Countdown kickoff={kickoff} />}
           </span>
         )}
       </div>
