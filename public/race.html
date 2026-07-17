@@ -58,7 +58,7 @@
         async function load() {
           try {
             const res = await fetch(
-              `${SUPABASE_URL}/rest/v1/predictions?select=points_earned,profiles!predictions_user_id_fkey(display_name),fixtures!predictions_match_id_fkey(kickoff_at,stage,home_team:teams!fixtures_home_team_id_fkey(name),away_team:teams!fixtures_away_team_id_fkey(name))&points_earned=not.is.null&order=fixtures(kickoff_at).asc`,
+              `${SUPABASE_URL}/rest/v1/race_data?select=*&order=kickoff_at.asc`,
               { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
             );
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -76,17 +76,15 @@
           const allPlayers = new Set();
 
           raw.forEach(row => {
-            const f = row.fixtures;
-            if (!f) return;
-            const player = row.profiles?.display_name;
-            const home = f.home_team?.name;
-            const away = f.away_team?.name;
+            const player = row.display_name;
+            const home = row.home_team;
+            const away = row.away_team;
             if (!player || !home || !away) return;
             allPlayers.add(player);
-            const key = `${f.kickoff_at}|${home}|${away}`;
+            const key = `${row.kickoff_at}|${home}|${away}`;
             if (!matchSeen.has(key)) {
               matchSeen.add(key);
-              matchOrder.push({ key, kickoff: f.kickoff_at, home, away, stage: f.stage });
+              matchOrder.push({ key, kickoff: row.kickoff_at, home, away, stage: row.stage });
             }
           });
 
@@ -100,11 +98,9 @@
 
           const snaps = matchOrder.map(({ key, kickoff, home, away, stage }) => {
             raw.forEach(row => {
-              const f = row.fixtures;
-              if (!f) return;
-              const k2 = `${f.kickoff_at}|${f.home_team?.name}|${f.away_team?.name}`;
+              const k2 = `${row.kickoff_at}|${row.home_team}|${row.away_team}`;
               if (k2 !== key) return;
-              const player = row.profiles?.display_name;
+              const player = row.display_name;
               const pts = row.points_earned ?? 0;
               if (player && running[player] !== undefined) running[player] += pts;
             });
