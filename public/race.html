@@ -201,14 +201,19 @@
             </div>
           </div>
 
-          {/* Bar chart */}
-          <div style={{ marginBottom:"12px" }}>
+          {/* Bar chart — absolutely positioned rows so rank changes animate as a
+              vertical slide/crossover, not an instant snap-to-new-order reflow */}
+          <div style={{ position:"relative", height: `${rankings.length * 32}px`, marginBottom:"12px" }}>
             {rankings.map(([player, points], i) => {
               const color = colorMap[player] ?? "#94A3B8";
               const pct = Math.max(3, (points / maxPts) * 100);
               const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : null;
               return (
-                <div key={player} style={{ marginBottom:"6px", display:"flex", alignItems:"center", gap:"7px" }}>
+                <div key={player} style={{
+                  position:"absolute", top: `${i * 32}px`, left:0, right:0,
+                  display:"flex", alignItems:"center", gap:"7px",
+                  transition:"top 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)"
+                }}>
                   {/* Rank / medal */}
                   <div style={{ width:"22px", textAlign:"right", fontSize:"11px", fontWeight:"700", flexShrink:0,
                     color: i===0?"#C9A84C": i===1?"#94A3B8": i===2?"#B45309":"#4B5563" }}>
