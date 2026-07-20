@@ -126,10 +126,12 @@ async function loadData() {
 
 function process(raw) {
   const matchOrder=[], matchSeen=new Set(), allPlayers=new Set();
+  const officialTotals={}; // authoritative app leaderboard totals — these win over our own math
   raw.forEach(row => {
     const player=row.display_name, home=row.home_team, away=row.away_team;
     if(!player||!home||!away) return;
     allPlayers.add(player);
+    if(row.official_total_points!=null) officialTotals[player]=row.official_total_points;
     const key=`${row.kickoff_at}|${home}|${away}`;
     if(!matchSeen.has(key)){ matchSeen.add(key); matchOrder.push({key,kickoff:row.kickoff_at,home,away,stage:row.stage}); }
   });
@@ -148,6 +150,20 @@ function process(raw) {
     });
     return {match:`${home} vs ${away}`,kickoff,stage,totals:{...running}};
   });
+
+  // The app's leaderboard is the official, already-finalized record.
+  // Force the LAST snapshot to match it exactly, so the final standings
+  // shown here always agree with the app — any historical manual
+  // adjustments to a player's stored total (made in the app, not visible
+  // in the raw predictions math) are respected rather than overridden.
+  // Earlier match-by-match snapshots still use the computed running sum,
+  // since those are just the season's progression, not the official record.
+  if(snapshots.length){
+    const last=snapshots[snapshots.length-1];
+    players.forEach(p=>{
+      if(officialTotals[p]!=null) last.totals[p]=officialTotals[p];
+    });
+  }
 
   document.getElementById("loading").style.display="none";
   document.getElementById("app").style.display="block";
@@ -181,17 +197,16 @@ function render(){
 function renderBump(rankings, n, snap) {
   const area = document.getElementById("chart-area");
   const containerW = area.offsetWidth || 460;
-  const rowH = Math.max(24, Math.min(36, Math.floor(400 / n)));
+  // Row height stays compact regardless of how many rows are shown —
+  // previously this scaled up to 36px+ which then drove font size up to
+  // 24px, far too large for a phone screen and overlapping the chart.
+  const rowH = Math.max(20, Math.min(28, Math.floor(320 / n)));
   const h = rowH * n + 24;
 
-  // Fixed per-match column width — this is what makes it a genuine scroll
-  // rather than squeezing every match into the visible width. Reference
-  // video style: history flows past on the left, current rank pinned on
-  // the right.
-  const colWidth = 46;
-  const leftPad = 16;
-  const labelW = 128; // reserved, non-scrolling right-side overlay width
-  const plotVisibleW = Math.max(100, containerW - labelW);
+  const colWidth = 40;
+  const leftPad = 14;
+  const labelW = 104; // tighter reserved overlay width, sized for mobile
+  const plotVisibleW = Math.max(90, containerW - labelW);
 
   const xS = i => leftPad + i * colWidth;
   const yS = r => 12 + r * rowH;
@@ -209,13 +224,10 @@ function renderBump(rankings, n, snap) {
     });
   }
 
-  // SVG spans the full played-so-far timeline plus a little lookahead space,
-  // NOT compressed to containerW — this is the actual scrollable width.
   const svgW = xS(currentIdx) + colWidth * 3;
 
   let svg = `<svg width="${svgW}" height="${h}" style="display:block">`;
 
-  // Stage bands
   let lastStage = null, bandStart = 0;
   const alphas = { group:"06", last_32:"0A", last_16:"0E", qf:"12", sf:"14", "3rd":"08", final:"1A" };
   for (let i = 0; i <= currentIdx + 1; i++) {
@@ -227,17 +239,13 @@ function renderBump(rankings, n, snap) {
     if (stage !== lastStage) { bandStart = i; lastStage = stage; }
   }
 
-  // Gridlines, one per match column
   for (let i = 0; i <= currentIdx; i++) {
     svg += `<line x1="${xS(i).toFixed(1)}" y1="0" x2="${xS(i).toFixed(1)}" y2="${h}" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>`;
   }
 
-  // Current match marker
   const cx = xS(currentIdx).toFixed(1);
   svg += `<line x1="${cx}" y1="0" x2="${cx}" y2="${h}" stroke="#C9A84C" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`;
 
-  // Smooth flowing curves between rank points (cubic Bezier, not straight
-  // segments) — the S-curve "bump" bend on rank changes.
   [...topPlayers].reverse().forEach(p => {
     const pts = paths[p];
     if (pts.length < 2) return;
@@ -248,25 +256,22 @@ function renderBump(rankings, n, snap) {
       const midX = (prev.x + cur.x) / 2;
       d += ` C${midX.toFixed(1)},${prev.y.toFixed(1)} ${midX.toFixed(1)},${cur.y.toFixed(1)} ${cur.x.toFixed(1)},${cur.y.toFixed(1)}`;
     }
-    svg += `<path d="${d}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>`;
+    svg += `<path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
   });
 
-  // Dot markers only (no text — labels live in the pinned overlay instead,
-  // so they don't scroll away with the chart)
   const curSorted = Object.entries(snap.totals).sort((a, b) => b[1] - a[1]);
   topPlayers.forEach(p => {
     const rank = curSorted.findIndex(([name]) => name === p);
     if (rank < 0 || rank >= n) return;
     const color = colorMap[p] ?? "#94A3B8";
-    svg += `<circle cx="${cx}" cy="${yS(rank)}" r="5.5" fill="${color}" stroke="#0a0d12" stroke-width="2.5"/>`;
+    svg += `<circle cx="${cx}" cy="${yS(rank)}" r="4.5" fill="${color}" stroke="#0a0d12" stroke-width="2"/>`;
   });
 
   svg += `</svg>`;
 
-  // Pinned right-side label overlay (HTML, not SVG) — stays fixed while the
-  // chart scrolls beneath it, same trick the reference video uses to keep
-  // crest/rank readable while history flows past.
-  const fs = Math.max(10, rowH - 12);
+  // Fixed, small font sizes — deliberately NOT derived from rowH, so they
+  // stay legible and don't overlap regardless of how many rows are shown.
+  const nameFs = 11, ptsFs = 11, rankFs = 9;
   let labelsHtml = "";
   topPlayers.forEach(p => {
     const rank = curSorted.findIndex(([name]) => name === p);
@@ -274,24 +279,23 @@ function renderBump(rankings, n, snap) {
     const color = colorMap[p] ?? "#94A3B8";
     const medal = rank === 0 ? "🥇" : rank === 1 ? "🥈" : rank === 2 ? "🥉" : null;
     const rankColor = rank===0?'#C9A84C':rank===1?'#94A3B8':rank===2?'#B45309':'#4B5563';
-    const short = p.length > 13 ? p.split(' ')[0] : p;
-    labelsHtml += `<div style="position:absolute;top:${yS(rank)-fs/2-2}px;right:6px;display:flex;align-items:center;gap:5px;white-space:nowrap">
-      <span style="font-size:${fs-1}px;font-weight:700;color:${rankColor};width:16px;text-align:right">${medal ?? rank+1}</span>
-      <span style="font-size:${fs}px;font-weight:${rank<3?'700':'500'};color:${rank<3?'#e8e0d0':'#9CA3AF'}">${short}</span>
-      <span style="font-size:${fs}px;font-weight:700;color:${color};min-width:22px">${snap.totals[p]}</span>
+    // First name only, hard-capped length — avoids long names pushing
+    // points off the edge or wrapping onto a second line.
+    const short = (p.split(' ')[0] || p).slice(0, 9);
+    labelsHtml += `<div style="position:absolute;top:${yS(rank)-nameFs/2-1}px;right:4px;left:4px;display:flex;align-items:center;justify-content:flex-end;gap:4px;white-space:nowrap;overflow:hidden">
+      <span style="font-size:${rankFs}px;font-weight:700;color:${rankColor};width:13px;text-align:right;flex-shrink:0">${medal ?? rank+1}</span>
+      <span style="font-size:${nameFs}px;font-weight:${rank<3?'700':'500'};color:${rank<3?'#e8e0d0':'#9CA3AF'};overflow:hidden;text-overflow:ellipsis;max-width:56px">${short}</span>
+      <span style="font-size:${ptsFs}px;font-weight:700;color:${color};flex-shrink:0;min-width:20px;text-align:right">${snap.totals[p]}</span>
     </div>`;
   });
 
   area.style.height = `${h}px`;
   area.innerHTML = `
     <div id="bump-scroll" style="overflow-x:auto;overflow-y:hidden;width:100%;height:100%;-ms-overflow-style:none;scrollbar-width:none">${svg}</div>
-    <div style="position:absolute;top:0;right:0;width:${labelW}px;height:${h}px;background:linear-gradient(90deg, rgba(10,13,18,0) 0%, rgba(10,13,18,0.9) 30%, rgba(10,13,18,0.98) 100%);pointer-events:none">${labelsHtml}</div>
+    <div style="position:absolute;top:0;right:0;width:${labelW}px;height:${h}px;background:linear-gradient(90deg, rgba(10,13,18,0) 0%, rgba(10,13,18,0.92) 35%, rgba(10,13,18,0.98) 100%);pointer-events:none">${labelsHtml}</div>
     <style>#bump-scroll::-webkit-scrollbar{display:none}</style>
   `;
 
-  // Auto-scroll so the current match column sits just before the pinned
-  // label overlay, revealing new columns and sliding history left as
-  // playback advances — this is the actual "scrolling like the video" part.
   const scrollEl = document.getElementById("bump-scroll");
   const target = Math.max(0, xS(currentIdx) - plotVisibleW + colWidth * 1.5);
   scrollEl.scrollTo({ left: target, behavior: playing ? "smooth" : "auto" });
