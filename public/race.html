@@ -23,7 +23,7 @@
     const { useState, useEffect, useRef, useCallback } = React;
 
     const SUPABASE_URL = "https://kikwlrbqptewcjldxglk.supabase.co";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtpa3dscmJxcHRld2NqbGR4Z2xrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0ODYwODYsImV4cCI6MjA5NjA2MjA4Nn0.GF593eru9Pubxu4MuOf0z5GrYV_-kw3drfDu7Be27WA";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtpa3dscmJxcHRld2NqbGR4Z2xrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgyMzY5MDAsImV4cCI6MjA2MzgxMjkwMH0.PW0uEwj09VV1DMaxijcELZT1GS0g0bXnlmx-J1F7dyQ";
 
     const PLAYER_COLORS = [
       "#C9A84C","#3B82F6","#10B981","#EF4444","#8B5CF6",
@@ -58,7 +58,7 @@
         async function load() {
           try {
             const res = await fetch(
-              `${SUPABASE_URL}/rest/v1/race_data?select=*&order=kickoff_at.asc`,
+              `${SUPABASE_URL}/rest/v1/predictions?select=points_earned,profiles!predictions_user_id_fkey(display_name),fixtures!predictions_match_id_fkey(kickoff_at,stage,home_team:teams!fixtures_home_team_id_fkey(name),away_team:teams!fixtures_away_team_id_fkey(name))&points_earned=not.is.null&order=fixtures(kickoff_at).asc`,
               { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
             );
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -76,15 +76,17 @@
           const allPlayers = new Set();
 
           raw.forEach(row => {
-            const player = row.display_name;
-            const home = row.home_team;
-            const away = row.away_team;
+            const f = row.fixtures;
+            if (!f) return;
+            const player = row.profiles?.display_name;
+            const home = f.home_team?.name;
+            const away = f.away_team?.name;
             if (!player || !home || !away) return;
             allPlayers.add(player);
-            const key = `${row.kickoff_at}|${home}|${away}`;
+            const key = `${f.kickoff_at}|${home}|${away}`;
             if (!matchSeen.has(key)) {
               matchSeen.add(key);
-              matchOrder.push({ key, kickoff: row.kickoff_at, home, away, stage: row.stage });
+              matchOrder.push({ key, kickoff: f.kickoff_at, home, away, stage: f.stage });
             }
           });
 
@@ -98,9 +100,11 @@
 
           const snaps = matchOrder.map(({ key, kickoff, home, away, stage }) => {
             raw.forEach(row => {
-              const k2 = `${row.kickoff_at}|${row.home_team}|${row.away_team}`;
+              const f = row.fixtures;
+              if (!f) return;
+              const k2 = `${f.kickoff_at}|${f.home_team?.name}|${f.away_team?.name}`;
               if (k2 !== key) return;
-              const player = row.display_name;
+              const player = row.profiles?.display_name;
               const pts = row.points_earned ?? 0;
               if (player && running[player] !== undefined) running[player] += pts;
             });
@@ -201,19 +205,14 @@
             </div>
           </div>
 
-          {/* Bar chart — absolutely positioned rows so rank changes animate as a
-              vertical slide/crossover, not an instant snap-to-new-order reflow */}
-          <div style={{ position:"relative", height: `${rankings.length * 32}px`, marginBottom:"12px" }}>
+          {/* Bar chart */}
+          <div style={{ marginBottom:"12px" }}>
             {rankings.map(([player, points], i) => {
               const color = colorMap[player] ?? "#94A3B8";
               const pct = Math.max(3, (points / maxPts) * 100);
               const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : null;
               return (
-                <div key={player} style={{
-                  position:"absolute", top: `${i * 32}px`, left:0, right:0,
-                  display:"flex", alignItems:"center", gap:"7px",
-                  transition:"top 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)"
-                }}>
+                <div key={player} style={{ marginBottom:"6px", display:"flex", alignItems:"center", gap:"7px" }}>
                   {/* Rank / medal */}
                   <div style={{ width:"22px", textAlign:"right", fontSize:"11px", fontWeight:"700", flexShrink:0,
                     color: i===0?"#C9A84C": i===1?"#94A3B8": i===2?"#B45309":"#4B5563" }}>
